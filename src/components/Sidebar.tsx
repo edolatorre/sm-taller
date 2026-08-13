@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Truck,
+  Package,
   Users,
   HardHat,
   UserCog,
@@ -26,6 +27,7 @@ import { MODULOS, type ModuloId } from "@/lib/permissions";
 const ICONOS: Record<ModuloId, LucideIcon> = {
   dashboard: LayoutDashboard,
   equipos: Truck,
+  inventario: Package,
   ordenes_trabajo: Wrench,
   mis_tareas: ListChecks,
   recepcion_entrega: FileInput,

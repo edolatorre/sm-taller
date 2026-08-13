@@ -3,6 +3,7 @@ import type { RolUsuario, Usuario } from "./types";
 export type ModuloId =
   | "dashboard"
   | "equipos"
+  | "inventario"
   | "ordenes_trabajo"
   | "mis_tareas"
   | "recepcion_entrega"
@@ -20,6 +21,7 @@ export const MODULOS: {
 }[] = [
   { id: "dashboard", label: "Dashboard", ruta: "/", descripcion: "Resumen general del taller" },
   { id: "equipos", label: "Equipos", ruta: "/equipos", descripcion: "Listado de maquinaria" },
+  { id: "inventario", label: "Inventario", ruta: "/inventario", descripcion: "Repuestos y stock de bodega" },
   { id: "ordenes_trabajo", label: "Órdenes de Trabajo", ruta: "/ordenes-trabajo", descripcion: "Gestión de OT" },
   { id: "mis_tareas", label: "Mis Tareas", ruta: "/mis-tareas", descripcion: "Tareas asignadas al mecánico" },
   { id: "recepcion_entrega", label: "Recepción y Entrega", ruta: "/recepcion-entrega", descripcion: "Actas de recepción/entrega" },
@@ -35,6 +37,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, ModuloId[]> = {
   supervisor: [
     "dashboard",
     "equipos",
+    "inventario",
     "ordenes_trabajo",
     "mis_tareas",
     "recepcion_entrega",
@@ -43,7 +46,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, ModuloId[]> = {
     "colaboradores",
   ],
   tecnico: ["mis_tareas"],
-  recepcion: ["dashboard", "equipos", "clientes", "recepcion_entrega"],
+  recepcion: ["dashboard", "equipos", "inventario", "clientes", "recepcion_entrega"],
 };
 
 export function getPermisosUsuario(

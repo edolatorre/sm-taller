@@ -6,7 +6,15 @@ import { ArrowLeft, Save, CheckCircle } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { ETAPAS_OT, ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import AsignacionPanel from "@/components/AsignacionPanel";
-import type { OrdenTrabajo, Equipo, EtapaOT, EstadoOT, UbicacionOT } from "@/lib/types";
+import {
+  ESTADO_REPUESTO_LABELS,
+  ESTADO_REPUESTO_COLORS,
+  type OrdenTrabajo,
+  type Equipo,
+  type EtapaOT,
+  type EstadoOT,
+  type UbicacionOT,
+} from "@/lib/types";
 
 function OrdenEditor({
   orden,
@@ -16,7 +24,9 @@ function OrdenEditor({
   equipo: Equipo | undefined;
 }) {
   const router = useRouter();
-  const { updateOrden, colaboradores } = useApp();
+  const { updateOrden, colaboradores, repuestos, getAsignacionesRepuestoByOrden } =
+    useApp();
+  const asignacionesRepuestoDeOrden = getAsignacionesRepuestoByOrden(orden.id);
 
   function updateField(field: string, value: string) {
     updateOrden(orden.id, { [field]: value });
@@ -260,6 +270,59 @@ function OrdenEditor({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {asignacionesRepuestoDeOrden.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-sm font-semibold text-brand-blue uppercase tracking-wide mb-4">
+                Repuestos de Inventario Asignados
+              </h2>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-brand-border text-brand-grey">
+                    <th className="text-left p-2">N° Parte</th>
+                    <th className="text-left p-2">Descripción</th>
+                    <th className="text-right p-2">Cantidad</th>
+                    <th className="text-left p-2">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {asignacionesRepuestoDeOrden.map((a) => {
+                    const repuesto = repuestos.find((r) => r.id === a.repuestoId);
+                    return (
+                      <tr key={a.id} className="border-b border-brand-border/40">
+                        <td className="p-2 font-mono text-xs">
+                          {repuesto?.nroParte ?? "—"}
+                        </td>
+                        <td className="p-2">{repuesto?.descripcion ?? "—"}</td>
+                        <td className="p-2 text-right">{a.cantidad}</td>
+                        <td className="p-2">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${ESTADO_REPUESTO_COLORS[a.estado]}`}
+                          >
+                            {ESTADO_REPUESTO_LABELS[a.estado]}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="text-xs text-brand-grey mt-3">
+                Gestiona estos repuestos desde{" "}
+                {equipo ? (
+                  <Link
+                    href={`/equipos/${equipo.id}`}
+                    className="text-brand-blue hover:underline"
+                  >
+                    la ficha del equipo
+                  </Link>
+                ) : (
+                  "la ficha del equipo"
+                )}
+                .
+              </p>
             </div>
           )}
 

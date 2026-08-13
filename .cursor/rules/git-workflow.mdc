@@ -1,0 +1,18 @@
+---
+description: Flujo de ramas obligatorio
+alwaysApply: true
+---
+
+# Flujo de ramas
+
+Toda rama nueva sale de `main` **actualizado**. Nunca ramificar desde la rama en la que se está parado, ni desde otra feature branch.
+
+```bash
+git checkout main
+git pull
+git checkout -b feature/nombre-descriptivo
+```
+
+- Nunca commitear directo a `main`.
+- El merge a `main` es siempre vía Pull Request.
+- Antes de crear la rama, correr `git status` y resolver cualquier cambio pendiente (stash o commit) para no arrastrar trabajo de otra rama.

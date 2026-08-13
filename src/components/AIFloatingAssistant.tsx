@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, X, Send, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { buildTallerContext } from "@/lib/ai/buildContext";
+import { equiposListosParaContinuar, repuestosBajoStock } from "@/lib/inventario";
 import type { ChatMessage, Recomendacion } from "@/lib/ai/types";
 
 const PRIMER_CHEQUEO_MS = 5_000;
@@ -34,8 +35,16 @@ const SESION_VACIA: SesionUsuario = {
 };
 
 export default function AIFloatingAssistant() {
-  const { currentUser, equipos, clientes, ordenes, asignaciones, colaboradores } =
-    useApp();
+  const {
+    currentUser,
+    equipos,
+    clientes,
+    ordenes,
+    asignaciones,
+    colaboradores,
+    repuestos,
+    asignacionesRepuesto,
+  } = useApp();
   const userId = currentUser.id;
 
   const [open, setOpen] = useState(false);
@@ -71,8 +80,19 @@ export default function AIFloatingAssistant() {
         ordenes,
         asignaciones,
         colaboradores,
+        repuestos,
+        asignacionesRepuesto,
       }),
-    [currentUser, equipos, clientes, ordenes, asignaciones, colaboradores]
+    [
+      currentUser,
+      equipos,
+      clientes,
+      ordenes,
+      asignaciones,
+      colaboradores,
+      repuestos,
+      asignacionesRepuesto,
+    ]
   );
 
   const checkRecomendaciones = useCallback(async () => {
@@ -87,9 +107,12 @@ export default function AIFloatingAssistant() {
         const altas = (data.recomendaciones as Recomendacion[]).filter(
           (r) => r.prioridad === "alta"
         );
-        if (altas.length > 0) {
-          actualizarSesion(userId, { pendientes: altas, hasBadge: true });
-        }
+        // Se actualiza siempre (también cuando altas quedó vacío), para que
+        // una alerta ya resuelta (ej. stock corregido) no quede pegada.
+        actualizarSesion(userId, {
+          pendientes: altas,
+          hasBadge: altas.length > 0,
+        });
       }
     } catch {
       // Chequeo silencioso en segundo plano: se ignoran errores de red.
@@ -104,6 +127,44 @@ export default function AIFloatingAssistant() {
       clearInterval(interval);
     };
   }, [checkRecomendaciones]);
+
+  // Firma del estado de inventario relevante para el Supervisor IA: qué
+  // equipos están listos para continuar, qué repuestos están bajo stock, y
+  // el estado de cada asignación (solicitado/en_transito/recibido/instalado).
+  // Cuando cambia cualquiera de estos — marcar "recibido", corregir el stock
+  // de un repuesto, etc. — se dispara un chequeo inmediato en vez de esperar
+  // el próximo intervalo de 15 min, para que la alerta se sienta al instante
+  // y no quede una recomendación vieja (p.ej. "bajo stock") después de que
+  // el problema ya se corrigió.
+  const firmaInventario = useMemo(() => {
+    const listos = equiposListosParaContinuar(equipos, asignacionesRepuesto)
+      .map((e) => e.id)
+      .sort()
+      .join(",");
+    const bajoStock = repuestosBajoStock(repuestos)
+      .map((r) => r.id)
+      .sort()
+      .join(",");
+    const estadosAsignaciones = asignacionesRepuesto
+      .map((a) => `${a.id}:${a.estado}`)
+      .sort()
+      .join(",");
+    return `${listos}|${bajoStock}|${estadosAsignaciones}`;
+  }, [equipos, asignacionesRepuesto, repuestos]);
+  const firmaAnteriorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (firmaAnteriorRef.current === null) {
+      // Primer render: solo establece la línea base, no dispara chequeo
+      // (ya lo hace el efecto de arriba a los PRIMER_CHEQUEO_MS).
+      firmaAnteriorRef.current = firmaInventario;
+      return;
+    }
+    if (firmaAnteriorRef.current !== firmaInventario) {
+      firmaAnteriorRef.current = firmaInventario;
+      checkRecomendaciones();
+    }
+  }, [firmaInventario, checkRecomendaciones]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({

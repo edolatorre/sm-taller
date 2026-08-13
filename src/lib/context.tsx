@@ -20,6 +20,9 @@ import type {
   EtapaOT,
   EstadoAsignacion,
   RolUsuario,
+  Repuesto,
+  AsignacionRepuesto,
+  EstadoRepuestoAsignado,
 } from "./types";
 import type { ModuloId } from "./permissions";
 import {
@@ -38,6 +41,8 @@ import {
   actasRecepcionIniciales,
   ordenesIniciales,
   asignacionesIniciales,
+  repuestosIniciales,
+  asignacionesRepuestoIniciales,
 } from "./mock-data";
 import { createEmptyRespuestas } from "./checklist-data";
 import { createEmptyRespuestasRecepcion } from "./recepcion-data";
@@ -74,7 +79,7 @@ interface AppContextType {
   deleteCliente: (id: string) => void;
   getClienteById: (id: string) => Cliente | undefined;
   addEquipo: (data: Omit<Equipo, "id">) => void;
-  updateEquipo: (id: string, data: Omit<Equipo, "id">) => void;
+  updateEquipo: (id: string, data: Partial<Omit<Equipo, "id">>) => void;
   deleteEquipo: (id: string) => void;
   addColaborador: (data: Omit<Colaborador, "id">) => void;
   updateColaborador: (id: string, data: Omit<Colaborador, "id">) => void;
@@ -124,6 +129,26 @@ interface AppContextType {
   canCurrentUserAssign: () => boolean;
   lastEmail: EmailNotificacion | null;
   clearLastEmail: () => void;
+  repuestos: Repuesto[];
+  addRepuesto: (data: Omit<Repuesto, "id" | "createdAt">) => void;
+  updateRepuesto: (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => void;
+  deleteRepuesto: (id: string) => void;
+  getRepuestoById: (id: string) => Repuesto | undefined;
+  asignacionesRepuesto: AsignacionRepuesto[];
+  asignarRepuesto: (
+    data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">
+  ) => void;
+  actualizarAsignacionRepuesto: (
+    id: string,
+    data: {
+      estado?: EstadoRepuestoAsignado;
+      cantidad?: number;
+      notas?: string;
+    }
+  ) => void;
+  deleteAsignacionRepuesto: (id: string) => void;
+  getAsignacionesRepuestoByEquipo: (equipoId: string) => AsignacionRepuesto[];
+  getAsignacionesRepuestoByOrden: (ordenId: string) => AsignacionRepuesto[];
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -145,6 +170,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<AsignacionTarea[]>(asignacionesIniciales);
   const [emails, setEmails] = useState<EmailNotificacion[]>([]);
   const [lastEmail, setLastEmail] = useState<EmailNotificacion | null>(null);
+  const [repuestos, setRepuestos] = useState<Repuesto[]>(repuestosIniciales);
+  const [asignacionesRepuesto, setAsignacionesRepuesto] = useState<
+    AsignacionRepuesto[]
+  >(asignacionesRepuestoIniciales);
   const [permisosPorRol, setPermisosPorRol] =
     useState<Record<RolUsuario, ModuloId[]>>(PERMISOS_POR_ROL);
 
@@ -211,6 +240,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (colaboradorId: string) =>
       asignaciones.filter((a) => a.colaboradorId === colaboradorId),
     [asignaciones]
+  );
+  const getRepuestoById = useCallback(
+    (id: string) => repuestos.find((r) => r.id === id),
+    [repuestos]
+  );
+  const getAsignacionesRepuestoByEquipo = useCallback(
+    (equipoId: string) =>
+      asignacionesRepuesto.filter((a) => a.equipoId === equipoId),
+    [asignacionesRepuesto]
+  );
+  const getAsignacionesRepuestoByOrden = useCallback(
+    (ordenId: string) =>
+      asignacionesRepuesto.filter((a) => a.ordenId === ordenId),
+    [asignacionesRepuesto]
   );
 
   const pushEmail = useCallback((email: EmailNotificacion) => {
@@ -380,14 +423,109 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setEquipos((prev) => [...prev, { ...data, id: generateId("e") }]);
   }, []);
 
-  const updateEquipo = useCallback((id: string, data: Omit<Equipo, "id">) => {
-    setEquipos((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...data } : e))
-    );
-  }, []);
+  const updateEquipo = useCallback(
+    (id: string, data: Partial<Omit<Equipo, "id">>) => {
+      setEquipos((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...data } : e))
+      );
+    },
+    []
+  );
 
   const deleteEquipo = useCallback((id: string) => {
     setEquipos((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const addRepuesto = useCallback(
+    (data: Omit<Repuesto, "id" | "createdAt">) => {
+      setRepuestos((prev) => [
+        ...prev,
+        {
+          ...data,
+          id: generateId("rep"),
+          createdAt: new Date().toISOString().split("T")[0],
+        },
+      ]);
+    },
+    []
+  );
+
+  const updateRepuesto = useCallback(
+    (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => {
+      setRepuestos((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ...data } : r))
+      );
+    },
+    []
+  );
+
+  const deleteRepuesto = useCallback((id: string) => {
+    setRepuestos((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const asignarRepuesto = useCallback(
+    (data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">) => {
+      const hoy = new Date().toISOString().split("T")[0];
+      setAsignacionesRepuesto((prev) => [
+        ...prev,
+        {
+          ...data,
+          id: generateId("asgrep"),
+          fechaSolicitud: hoy,
+          fechaRecepcion: data.estado === "recibido" || data.estado === "instalado" ? hoy : "",
+        },
+      ]);
+    },
+    []
+  );
+
+  const actualizarAsignacionRepuesto = useCallback(
+    (
+      id: string,
+      data: {
+        estado?: EstadoRepuestoAsignado;
+        cantidad?: number;
+        notas?: string;
+      }
+    ) => {
+      const hoy = new Date().toISOString().split("T")[0];
+      setAsignacionesRepuesto((prev) =>
+        prev.map((a) => {
+          if (a.id !== id) return a;
+          const actualizado = { ...a, ...data };
+          if (
+            data.estado &&
+            (data.estado === "recibido" || data.estado === "instalado") &&
+            !a.fechaRecepcion
+          ) {
+            actualizado.fechaRecepcion = hoy;
+          }
+          return actualizado;
+        })
+      );
+
+      // Al instalar (por primera vez) se descuenta del stock del catálogo.
+      const asignacion = asignacionesRepuesto.find((a) => a.id === id);
+      if (
+        asignacion &&
+        data.estado === "instalado" &&
+        asignacion.estado !== "instalado"
+      ) {
+        const cantidad = data.cantidad ?? asignacion.cantidad;
+        setRepuestos((prev) =>
+          prev.map((r) =>
+            r.id === asignacion.repuestoId
+              ? { ...r, stock: Math.max(0, r.stock - cantidad) }
+              : r
+          )
+        );
+      }
+    },
+    [asignacionesRepuesto]
+  );
+
+  const deleteAsignacionRepuesto = useCallback((id: string) => {
+    setAsignacionesRepuesto((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
   const addColaborador = useCallback((data: Omit<Colaborador, "id">) => {
@@ -579,6 +717,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         canCurrentUserAssign,
         lastEmail,
         clearLastEmail,
+        repuestos,
+        addRepuesto,
+        updateRepuesto,
+        deleteRepuesto,
+        getRepuestoById,
+        asignacionesRepuesto,
+        asignarRepuesto,
+        actualizarAsignacionRepuesto,
+        deleteAsignacionRepuesto,
+        getAsignacionesRepuestoByEquipo,
+        getAsignacionesRepuestoByOrden,
       }}
     >
       {children}

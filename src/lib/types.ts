@@ -302,3 +302,97 @@ export const ESTADO_ASIGNACION_COLORS: Record<EstadoAsignacion, string> = {
   completada: "bg-green-500/20 text-green-700 border-green-500/30",
   con_observaciones: "bg-amber-500/20 text-amber-700 border-amber-500/30",
 };
+
+export type CategoriaRepuesto =
+  | "motor"
+  | "hidraulico"
+  | "tren_rodaje"
+  | "transmision"
+  | "electrico"
+  | "filtros"
+  | "otros";
+
+export interface Repuesto {
+  id: string;
+  nroParte: string;
+  descripcion: string;
+  marca: string;
+  categoria: CategoriaRepuesto;
+  stock: number;
+  stockMinimo: number;
+  ubicacion: string;
+  costoUnitario: number;
+  proveedor: string;
+  createdAt: string;
+}
+
+export const CATEGORIA_REPUESTO_LABELS: Record<CategoriaRepuesto, string> = {
+  motor: "Motor",
+  hidraulico: "Hidráulico",
+  tren_rodaje: "Tren de Rodaje",
+  transmision: "Transmisión",
+  electrico: "Eléctrico",
+  filtros: "Filtros",
+  otros: "Otros",
+};
+
+export function createEmptyRepuesto(): Omit<Repuesto, "id" | "createdAt"> {
+  return {
+    nroParte: "",
+    descripcion: "",
+    marca: "",
+    categoria: "otros",
+    stock: 0,
+    stockMinimo: 0,
+    ubicacion: "",
+    costoUnitario: 0,
+    proveedor: "",
+  };
+}
+
+export type EstadoRepuestoAsignado =
+  | "solicitado"
+  | "en_transito"
+  | "recibido"
+  | "instalado";
+
+export interface AsignacionRepuesto {
+  id: string;
+  repuestoId: string;
+  equipoId: string;
+  ordenId: string | null;
+  cantidad: number;
+  estado: EstadoRepuestoAsignado;
+  fechaSolicitud: string;
+  fechaRecepcion: string;
+  proveedor: string;
+  notas: string;
+}
+
+export const ESTADO_REPUESTO_LABELS: Record<EstadoRepuestoAsignado, string> = {
+  solicitado: "Solicitado",
+  en_transito: "En Tránsito",
+  recibido: "Recibido",
+  instalado: "Instalado",
+};
+
+export const ESTADO_REPUESTO_COLORS: Record<EstadoRepuestoAsignado, string> = {
+  solicitado: "bg-gray-100 text-brand-grey border-brand-border",
+  en_transito: "bg-amber-500/20 text-amber-700 border-amber-500/30",
+  recibido: "bg-green-500/20 text-green-700 border-green-500/30",
+  instalado: "bg-blue-500/20 text-blue-700 border-blue-500/30",
+};
+
+export function createEmptyAsignacionRepuesto(
+  equipoId = ""
+): Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion"> {
+  return {
+    repuestoId: "",
+    equipoId,
+    ordenId: null,
+    cantidad: 1,
+    estado: "solicitado",
+    proveedor: "",
+    notas: "",
+  };
+}

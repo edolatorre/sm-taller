@@ -5,9 +5,17 @@ import type {
   OrdenTrabajo,
   AsignacionTarea,
   Usuario,
+  Repuesto,
+  AsignacionRepuesto,
 } from "@/lib/types";
-import { ROL_LABELS } from "@/lib/types";
+import { ROL_LABELS, ESTADO_REPUESTO_LABELS } from "@/lib/types";
 import { ETAPA_LABELS } from "@/lib/ordenes-data";
+import {
+  asignacionesDeEquipo,
+  asignacionesDeOrden,
+  equiposListosParaContinuar,
+  repuestosBajoStock,
+} from "@/lib/inventario";
 import type { AsignacionResumen, TallerContext } from "./types";
 
 function diasDesde(fecha: string): number {
@@ -25,6 +33,8 @@ interface BuildContextInput {
   ordenes: OrdenTrabajo[];
   asignaciones: AsignacionTarea[];
   colaboradores: Colaborador[];
+  repuestos: Repuesto[];
+  asignacionesRepuesto: AsignacionRepuesto[];
 }
 
 export function buildTallerContext({
@@ -34,6 +44,8 @@ export function buildTallerContext({
   ordenes,
   asignaciones,
   colaboradores,
+  repuestos,
+  asignacionesRepuesto,
 }: BuildContextInput): TallerContext {
   const ordenesActivas = ordenes.filter((o) => o.estado !== "terminada");
 
@@ -42,6 +54,10 @@ export function buildTallerContext({
     const cliente = equipo
       ? clientes.find((c) => c.id === equipo.propietarioId)
       : undefined;
+    const repuestosPendientes = asignacionesDeOrden(
+      asignacionesRepuesto,
+      o.id
+    ).filter((a) => a.estado === "solicitado" || a.estado === "en_transito").length;
     return {
       numeroOT: o.numeroOT,
       descripcion: o.descripcion,
@@ -52,7 +68,7 @@ export function buildTallerContext({
       ubicacion: o.ubicacion,
       personalCargo: o.personalCargo,
       diasEnCurso: diasDesde(o.fechaInicio),
-      repuestosPendientes: o.repuestos.length,
+      repuestosPendientes,
       observaciones: o.observaciones,
     };
   });
@@ -116,6 +132,54 @@ export function buildTallerContext({
     (e) => e.estado === "espera_repuestos"
   ).length;
 
+  const equiposListos = equiposListosParaContinuar(equipos, asignacionesRepuesto);
+  const equiposListosResumen = equiposListos.map((equipo) => {
+    const cliente = clientes.find((c) => c.id === equipo.propietarioId);
+    const asignacionesEquipo = asignacionesDeEquipo(
+      asignacionesRepuesto,
+      equipo.id
+    );
+    const ultimaRecepcion = asignacionesEquipo
+      .map((a) => a.fechaRecepcion)
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+    const ordenId = asignacionesEquipo.find((a) => a.ordenId)?.ordenId;
+    const orden = ordenId ? ordenes.find((o) => o.id === ordenId) : undefined;
+    return {
+      equipo: `${equipo.marca} ${equipo.modelo}`,
+      nroSerie: equipo.nroSerie,
+      cliente: cliente?.razonSocial ?? "—",
+      repuestosRecibidos: asignacionesEquipo.length,
+      ultimaRecepcion: ultimaRecepcion ?? "—",
+      ordenNumero: orden?.numeroOT ?? "—",
+    };
+  });
+
+  const repuestosPendientesLlegada = asignacionesRepuesto
+    .filter((a) => a.estado === "solicitado" || a.estado === "en_transito")
+    .map((a) => {
+      const equipo = equipos.find((e) => e.id === a.equipoId);
+      const repuesto = repuestos.find((r) => r.id === a.repuestoId);
+      const orden = a.ordenId ? ordenes.find((o) => o.id === a.ordenId) : undefined;
+      return {
+        equipo: equipo ? `${equipo.marca} ${equipo.modelo}` : "—",
+        repuesto: repuesto?.descripcion ?? "—",
+        nroParte: repuesto?.nroParte ?? "—",
+        cantidad: a.cantidad,
+        estado: ESTADO_REPUESTO_LABELS[a.estado],
+        diasEsperando: diasDesde(a.fechaSolicitud),
+        ordenNumero: orden?.numeroOT ?? "—",
+      };
+    });
+
+  const repuestosBajoStockResumen = repuestosBajoStock(repuestos).map((r) => ({
+    nroParte: r.nroParte,
+    descripcion: r.descripcion,
+    stock: r.stock,
+    stockMinimo: r.stockMinimo,
+  }));
+
   return {
     fecha: new Date().toISOString().split("T")[0],
     usuarioActual: {
@@ -129,5 +193,8 @@ export function buildTallerContext({
     asignaciones: asignacionesResumen,
     cargaPorColaborador,
     equiposEsperandoRepuestos,
+    equiposListosParaContinuar: equiposListosResumen,
+    repuestosPendientesLlegada,
+    repuestosBajoStock: repuestosBajoStockResumen,
   };
 }

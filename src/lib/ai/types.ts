@@ -35,6 +35,32 @@ export interface UsuarioActual {
   tieneTareasPropias: boolean;
 }
 
+export interface EquipoListoResumen {
+  equipo: string;
+  nroSerie: string;
+  cliente: string;
+  repuestosRecibidos: number;
+  ultimaRecepcion: string;
+  ordenNumero: string;
+}
+
+export interface RepuestoPendienteResumen {
+  equipo: string;
+  repuesto: string;
+  nroParte: string;
+  cantidad: number;
+  estado: string;
+  diasEsperando: number;
+  ordenNumero: string;
+}
+
+export interface RepuestoBajoStockResumen {
+  nroParte: string;
+  descripcion: string;
+  stock: number;
+  stockMinimo: number;
+}
+
 export interface TallerContext {
   fecha: string;
   usuarioActual: UsuarioActual;
@@ -44,6 +70,9 @@ export interface TallerContext {
   asignaciones: AsignacionResumen[];
   cargaPorColaborador: CargaColaborador[];
   equiposEsperandoRepuestos: number;
+  equiposListosParaContinuar: EquipoListoResumen[];
+  repuestosPendientesLlegada: RepuestoPendienteResumen[];
+  repuestosBajoStock: RepuestoBajoStockResumen[];
 }
 
 export type PrioridadRecomendacion = "alta" | "media" | "baja";

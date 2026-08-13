@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, Eye, CheckCircle2 } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
@@ -13,6 +14,7 @@ import {
   type Equipo,
   type EstadoEquipo,
 } from "@/lib/types";
+import { equipoListoParaContinuar } from "@/lib/inventario";
 
 export default function EquiposPage() {
   const {
@@ -22,6 +24,7 @@ export default function EquiposPage() {
     addEquipo,
     updateEquipo,
     deleteEquipo,
+    getAsignacionesRepuestoByEquipo,
   } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Equipo | null>(null);
@@ -118,6 +121,10 @@ export default function EquiposPage() {
           <tbody>
             {filtered.map((equipo) => {
               const cliente = getClienteById(equipo.propietarioId);
+              const listoParaContinuar = equipoListoParaContinuar(
+                equipo,
+                getAsignacionesRepuestoByEquipo(equipo.id)
+              );
               return (
                 <tr
                   key={equipo.id}
@@ -130,10 +137,25 @@ export default function EquiposPage() {
                   <td className="p-4 font-mono text-xs">{equipo.nroMotor}</td>
                   <td className="p-4">{cliente?.razonSocial ?? "—"}</td>
                   <td className="p-4">
-                    <StatusBadge estado={equipo.estado} />
+                    <div className="flex flex-col items-start gap-1.5">
+                      <StatusBadge estado={equipo.estado} />
+                      {listoParaContinuar && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-700 border border-green-500/30">
+                          <CheckCircle2 size={12} />
+                          Repuestos completos
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4">
                     <div className="flex justify-end gap-2">
+                      <Link
+                        href={`/equipos/${equipo.id}`}
+                        className="p-2 text-brand-grey hover:text-brand-blue transition-colors"
+                        aria-label="Ver detalle"
+                      >
+                        <Eye size={16} />
+                      </Link>
                       <button
                         onClick={() => openEdit(equipo)}
                         className="p-2 text-brand-grey hover:text-brand-blue transition-colors"
