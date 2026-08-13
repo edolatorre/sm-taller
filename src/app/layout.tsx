@@ -4,6 +4,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import EmailToast from "@/components/EmailToast";
 import RouteGuard from "@/components/RouteGuard";
+import AIFloatingAssistant from "@/components/AIFloatingAssistant";
 import { AppProvider } from "@/lib/context";
 
 const inter = Inter({
@@ -33,6 +34,7 @@ export default function RootLayout({
             </div>
           </main>
           <EmailToast />
+          <AIFloatingAssistant />
         </AppProvider>
       </body>
     </html>
