@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flujo de la Plataforma SM-EM</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Inter, system-ui, sans-serif;
+      color: #1a1a1a;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      background: #fff;
+    }
+    .cover {
+      text-align: center;
+      padding: 48px 24px 40px;
+      border-bottom: 3px solid #3b5998;
+      margin-bottom: 32px;
+      page-break-after: always;
+    }
+    .cover img { max-width: 280px; margin-bottom: 28px; }
+    .cover h1 { font-size: 22pt; color: #3b5998; margin-bottom: 8px; }
+    .cover .subtitle { font-size: 13pt; color: #666; margin-bottom: 24px; }
+    .cover .meta { font-size: 10pt; color: #666; }
+    h2 {
+      font-size: 14pt;
+      color: #3b5998;
+      margin: 28px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #e2e8f0;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 11pt; color: #1a1a1a; margin: 18px 0 8px; page-break-after: avoid; }
+    p { margin-bottom: 10px; color: #333; }
+    ul, ol { margin: 8px 0 12px 20px; color: #333; }
+    li { margin-bottom: 5px; }
+    .note {
+      background: #f0f4fb;
+      border-left: 4px solid #3b5998;
+      padding: 12px 14px;
+      margin: 14px 0;
+      font-size: 10pt;
+      border-radius: 0 6px 6px 0;
+    }
+    .warn {
+      background: #fffbeb;
+      border-left: 4px solid #eab308;
+      padding: 12px 14px;
+      margin: 14px 0;
+      font-size: 10pt;
+      border-radius: 0 6px 6px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    th {
+      background: #3b5998;
+      color: #fff;
+      text-align: left;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+    td {
+      border: 1px solid #e2e8f0;
+      padding: 7px 10px;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .flow-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0;
+      align-items: center;
+    }
+    .flow-step {
+      background: #3b5998;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 9pt;
+      font-weight: 600;
+      text-align: center;
+      min-width: 100px;
+    }
+    .flow-arrow { color: #3b5998; font-size: 16pt; font-weight: bold; }
+    .badge {
+      display: inline-block;
+      background: #e8eef7;
+      color: #3b5998;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 8.5pt;
+      font-weight: 600;
+    }
+    .page-break { page-break-before: always; }
+    .footer-note {
+      margin-top: 32px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 9pt;
+      color: #666;
+      text-align: center;
+    }
+    .diagram {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 14px 0;
+      font-family: monospace;
+      font-size: 9pt;
+      line-height: 1.7;
+      white-space: pre;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cover">
+    <img src="../public/logo.png" alt="SM-EM Logo" />
+    <h1>Plataforma de Gestión de Taller</h1>
+    <p class="subtitle">Documento de flujo operativo — Versión demo</p>
+    <p class="meta"><strong>Servicios Mineros Equipos y Maquinarias (SM-EM)</strong></p>
+    <p class="meta">Marzo 2026 · Documento para cliente</p>
+  </div>
+
+  <h2>1. Resumen ejecutivo</h2>
+  <p>
+    La plataforma SM-EM es un sistema web de gestión para talleres de maquinaria pesada.
+    Centraliza el seguimiento de equipos, clientes, órdenes de trabajo (OT), actas de
+    recepción/entrega, control de calidad y asignación de tareas a mecánicos.
+  </p>
+  <p>
+    La versión actual es una <strong>demostración funcional</strong>: todos los módulos
+    están operativos con datos de ejemplo en memoria. Permite validar flujos, pantallas
+    y reglas de negocio antes de conectar una base de datos y servicios reales.
+  </p>
+
+  <div class="note">
+    <strong>Objetivo del documento:</strong> describir cómo funciona la plataforma hoy,
+    qué hace cada módulo, cómo interactúan los roles y cuál es el recorrido típico de
+    un equipo desde su ingreso al taller hasta su entrega.
+  </div>
+
+  <h2>2. Módulos de la plataforma</h2>
+  <table>
+    <thead>
+      <tr><th>Módulo</th><th>Función principal</th><th>Usuarios típicos</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Dashboard</strong></td><td>KPIs del taller: equipos ingresados, reparaciones activas, espera de repuestos y clientes</td><td>Admin, Supervisor, Recepción</td></tr>
+      <tr><td><strong>Equipos</strong></td><td>Registro de maquinaria: marca, modelo, año, serie, motor, propietario y estado</td><td>Admin, Supervisor, Recepción</td></tr>
+      <tr><td><strong>Clientes</strong></td><td>Ficha completa de empresas clientes y contactos</td><td>Admin, Supervisor, Recepción</td></tr>
+      <tr><td><strong>Recepción y Entrega</strong></td><td>Actas con checklist de 95 ítems calificados B/R/M/N/A</td><td>Admin, Supervisor, Recepción</td></tr>
+      <tr><td><strong>Órdenes de Trabajo</strong></td><td>Creación y seguimiento de OT por etapas del proceso productivo</td><td>Admin, Supervisor</td></tr>
+      <tr><td><strong>Mis Tareas</strong></td><td>Vista del mecánico: tareas asignadas, iniciar, completar u observar</td><td>Técnico, Supervisor</td></tr>
+      <tr><td><strong>Control de Calidad</strong></td><td>Actas de revisión con checklist R/P (95 ítems en 7 secciones)</td><td>Admin, Supervisor</td></tr>
+      <tr><td><strong>Colaboradores</strong></td><td>Personal del taller: mecánicos, supervisores, recepción</td><td>Admin, Supervisor</td></tr>
+      <tr><td><strong>Usuarios</strong></td><td>Cuentas de acceso vinculadas a colaboradores, con roles y permisos</td><td>Admin</td></tr>
+      <tr><td><strong>Configuración</strong></td><td>Matriz de permisos por rol y resumen de accesos</td><td>Admin</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Flujo operativo principal</h2>
+  <p>El recorrido típico de un equipo en el taller sigue esta secuencia:</p>
+
+  <div class="flow-box">
+    <div class="flow-step">1. Recepción<br/>del equipo</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">2. Registro<br/>en sistema</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">3. Orden de<br/>Trabajo (OT)</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">4. Asignación<br/>por etapa</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">5. Ejecución<br/>mecánico</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">6. Control<br/>de calidad</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">7. Entrega<br/>al cliente</div>
+  </div>
+
+  <h3>3.1 Recepción del equipo</h3>
+  <p>
+    El área de <strong>Recepción</strong> crea un acta de recepción seleccionando el equipo
+    y el cliente. Completa un checklist estandarizado de <strong>95 ítems</strong> organizados
+    en 7 secciones, calificando cada punto:
+  </p>
+  <ul>
+    <li><span class="badge">B</span> Bueno</li>
+    <li><span class="badge">R</span> Regular</li>
+    <li><span class="badge">M</span> Malo</li>
+    <li><span class="badge">N/A</span> No aplica</li>
+  </ul>
+  <p>Cada ítem puede incluir observaciones. El acta queda registrada y consultable en cualquier momento.</p>
+
+  <h3>3.2 Registro de equipos y clientes</h3>
+  <p>
+    Simultáneamente (o previamente), el equipo se registra en el módulo <strong>Equipos</strong>
+    con marca, modelo, año, número de serie, número de motor y propietario (cliente).
+    Los estados posibles del equipo son:
+  </p>
+  <ul>
+    <li><strong>En Taller</strong> — ingresado, pendiente de diagnóstico</li>
+    <li><strong>Reparación en Proceso</strong> — trabajo activo</li>
+    <li><strong>Espera de Repuestos</strong> — detenido por falta de piezas</li>
+    <li><strong>Finalizado</strong> — trabajo concluido, listo para entrega</li>
+  </ul>
+
+  <h3>3.3 Creación de Orden de Trabajo (OT)</h3>
+  <p>
+    El <strong>Supervisor</strong> o <strong>Administrador</strong> crea una OT vinculada al
+    equipo. Cada OT tiene número correlativo, descripción del trabajo, estado (activa, pausada,
+    terminada) y una <strong>etapa actual</strong> del proceso productivo.
+  </p>
+  <p>Las 10 etapas definidas (basadas en el formato OT de SM-EM) son:</p>
+  <ol>
+    <li>Evaluación / Revisión</li>
+    <li>Desmontaje / Desarme</li>
+    <li>Normalización de Sistema</li>
+    <li>Reparación</li>
+    <li>Montaje / Armado</li>
+    <li>Prueba</li>
+    <li>Pintura</li>
+    <li>Soldadura</li>
+    <li>Mantención</li>
+    <li>Otros</li>
+  </ol>
+  <p>El módulo de OT incluye un gráfico de distribución de OT activas por etapa.</p>
+
+  <div class="page-break"></div>
+
+  <h3>3.4 Asignación de tareas a mecánicos</h3>
+  <p>
+    Desde el detalle de una OT, el supervisor selecciona la <strong>etapa</strong>,
+    el <strong>mecánico</strong> (colaborador con usuario activo) e ingresa
+    <strong>instrucciones</strong>. Al confirmar:
+  </p>
+  <ol>
+    <li>Se crea una asignación con estado <em>Pendiente</em></li>
+    <li>Se simula el envío de un correo al mecánico con los detalles de la tarea</li>
+    <li>El mecánico ve la tarea en su módulo <strong>Mis Tareas</strong></li>
+  </ol>
+
+  <div class="diagram">Supervisor                          Mecánico
+    │                                    │
+    │  Abre OT → Asigna etapa           │
+    │  + mecánico + instrucciones        │
+    │                                    │
+    ├──── Notificación (correo simulado) ──→  Ve tarea en "Mis Tareas"
+    │                                    │
+    │                                    ├─ Iniciar → En Proceso
+    │                                    ├─ Marcar OK → Completada
+    │                                    └─ Dejar Observación → Con Observaciones
+    │                                    │
+    ←── Notificación al supervisor ──────┘
+         (al completar u observar)</div>
+
+  <h3>3.5 Ejecución por el mecánico</h3>
+  <p>En <strong>Mis Tareas</strong>, el mecánico puede:</p>
+  <table>
+    <thead>
+      <tr><th>Acción</th><th>Estado resultante</th><th>Efecto</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Iniciar</td><td>En Proceso</td><td>Indica que comenzó el trabajo</td></tr>
+      <tr><td>Marcar OK — Completada</td><td>Completada</td><td>Notifica al supervisor por correo simulado</td></tr>
+      <tr><td>Dejar Observación</td><td>Con Observaciones</td><td>Registra comentario y notifica al supervisor</td></tr>
+      <tr><td>Retomar Trabajo</td><td>En Proceso</td><td>Disponible tras una observación previa</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.6 Control de calidad</h3>
+  <p>
+    Antes de la entrega, se genera un acta de <strong>Control de Calidad</strong> con
+    checklist de 95 ítems en 7 secciones. Cada ítem se califica como:
+  </p>
+  <ul>
+    <li><span class="badge">R</span> Revisado / conforme</li>
+    <li><span class="badge">P</span> Pendiente / con observación</li>
+  </ul>
+
+  <h3>3.7 Entrega del equipo</h3>
+  <p>
+    Se crea un acta de <strong>Entrega de equipo</strong> en Recepción y Entrega,
+    usando el mismo checklist de 95 ítems. El equipo pasa a estado <strong>Finalizado</strong>.
+  </p>
+
+  <h2>4. Roles y permisos de acceso</h2>
+  <p>Cada usuario tiene un rol que determina qué módulos puede ver. El administrador puede personalizar permisos por usuario.</p>
+
+  <table>
+    <thead>
+      <tr><th>Rol</th><th>Módulos con acceso</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Administrador</strong></td><td>Todos los módulos, incluyendo Usuarios y Configuración</td></tr>
+      <tr><td><strong>Supervisor</strong></td><td>Dashboard, Equipos, OT, Mis Tareas, Recepción, Calidad, Clientes, Colaboradores</td></tr>
+      <tr><td><strong>Técnico</strong></td><td>Solo <strong>Mis Tareas</strong> — ve únicamente sus asignaciones</td></tr>
+      <tr><td><strong>Recepción</strong></td><td>Dashboard, Equipos, Clientes, Recepción y Entrega</td></tr>
+    </tbody>
+  </table>
+
+  <p>Reglas adicionales:</p>
+  <ul>
+    <li>Solo Admin y Supervisor pueden <strong>asignar tareas</strong> en una OT</li>
+    <li>Si un usuario intenta acceder a un módulo sin permiso, el sistema lo redirige automáticamente a su pantalla principal</li>
+    <li>El menú lateral solo muestra los módulos permitidos para el usuario activo</li>
+    <li>Los permisos pueden heredarse del rol o personalizarse por usuario en el módulo Usuarios</li>
+  </ul>
+
+  <h2>5. Usuarios de demostración</h2>
+  <table>
+    <thead>
+      <tr><th>Usuario</th><th>Rol</th><th>Uso en demo</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Admin SM-EM</td><td>Administrador</td><td>Acceso total, gestión de permisos</td></tr>
+      <tr><td>Roberto Fuentes</td><td>Supervisor</td><td>Crear OT, asignar tareas, ver dashboard</td></tr>
+      <tr><td>Andrea Vega</td><td>Técnico</td><td>Ver y completar tareas asignadas</td></tr>
+      <tr><td>Patricia Muñoz</td><td>Recepción</td><td>Actas de recepción/entrega, equipos</td></tr>
+      <tr><td>Luis Herrera</td><td>Técnico</td><td>Segundo mecánico para pruebas de asignación</td></tr>
+    </tbody>
+  </table>
+  <p>El cambio de usuario se realiza desde el selector en la parte inferior del menú lateral.</p>
+
+  <div class="page-break"></div>
+
+  <h2>6. Dashboard — indicadores clave</h2>
+  <p>La pantalla principal muestra cuatro KPIs en tiempo real (con datos de la sesión):</p>
+  <ul>
+    <li><strong>Equipos en Taller</strong> — ingresados, pendientes de diagnóstico</li>
+    <li><strong>Reparaciones en Proceso</strong> — trabajos activos</li>
+    <li><strong>Espera de Repuestos</strong> — equipos detenidos</li>
+    <li><strong>Clientes Activos</strong> — total registrados</li>
+  </ul>
+  <p>Debajo se listan los equipos activos con marca, serie, propietario, estado y descripción del trabajo.</p>
+
+  <h2>7. Notificaciones</h2>
+  <p>La demo simula correos electrónicos en tres momentos:</p>
+  <table>
+    <thead>
+      <tr><th>Evento</th><th>Destinatario</th><th>Contenido</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Nueva asignación</td><td>Mecánico</td><td>OT, etapa, instrucciones del supervisor</td></tr>
+      <tr><td>Tarea completada</td><td>Supervisor</td><td>Confirmación de trabajo finalizado</td></tr>
+      <tr><td>Observación registrada</td><td>Supervisor</td><td>Comentario del mecánico sobre la tarea</td></tr>
+    </tbody>
+  </table>
+  <p>Las notificaciones aparecen como toast en pantalla. En producción se conectarían a un servicio de correo real.</p>
+
+  <h2>8. Tecnología y despliegue</h2>
+  <table>
+    <thead>
+      <tr><th>Componente</th><th>Detalle</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Frontend / Backend</td><td>Next.js 15 + React 19 + TypeScript</td></tr>
+      <tr><td>Estilos</td><td>Tailwind CSS — identidad visual SM-EM (azul #3b5998)</td></tr>
+      <tr><td>Datos</td><td>Mock en memoria (demo) — no persiste entre sesiones</td></tr>
+      <tr><td>Despliegue</td><td>Compatible con Render, GitHub y entornos Node.js 20+</td></tr>
+    </tbody>
+  </table>
+
+  <h2>9. Alcance de la versión demo vs. producción</h2>
+
+  <table>
+    <thead>
+      <tr><th>Incluido en demo</th><th>Pendiente para producción</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Todos los módulos funcionales con UI completa</td><td>Base de datos persistente (PostgreSQL u otra)</td></tr>
+      <tr><td>Checklists de recepción y calidad (95 ítems)</td><td>Autenticación real (login con contraseña)</td></tr>
+      <tr><td>Flujo OT → asignación → tareas → notificaciones</td><td>Envío real de correos (SMTP / servicio)</td></tr>
+      <tr><td>Sistema de roles y permisos</td><td>Generación de PDF de actas y OT</td></tr>
+      <tr><td>CRUD de clientes, equipos, colaboradores, usuarios</td><td>Integración con ERP / facturación</td></tr>
+      <tr><td>Gráficos de OT por etapa</td><td>Historial y auditoría de cambios</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    <strong>Nota importante:</strong> los datos ingresados o modificados durante la demo
+    se mantienen solo mientras la sesión esté activa. Al recargar o reiniciar el servidor,
+    vuelven los datos de ejemplo originales.
+  </div>
+
+  <div class="footer-note">
+    Servicios Mineros Equipos y Maquinarias (SM-EM) · Documento generado automáticamente · Marzo 2026<br/>
+    Plataforma de Gestión de Taller — Versión demo
+  </div>
+
+</body>
+</html>
