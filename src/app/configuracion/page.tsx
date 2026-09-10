@@ -1,14 +1,176 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Users } from "lucide-react";
-import { useApp } from "@/lib/context";
+import { Shield, Users, ListChecks, Plus, Trash2 } from "lucide-react";
+import { useApp, type EstadoDefinicion } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import PermisosEditor from "@/components/PermisosEditor";
 import { MODULOS, type ModuloId } from "@/lib/permissions";
 import { ROL_LABELS, type RolUsuario } from "@/lib/types";
 
 const ROLES: RolUsuario[] = ["admin", "supervisor", "tecnico", "recepcion"];
+
+const COLOR_OPTIONS = [
+  { label: "Azul", value: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+  { label: "Púrpura", value: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+  { label: "Índigo", value: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30" },
+  { label: "Amarillo", value: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" },
+  { label: "Ámbar", value: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  { label: "Rojo", value: "bg-red-500/20 text-red-400 border-red-500/30" },
+  { label: "Verde", value: "bg-green-500/20 text-green-400 border-green-500/30" },
+  { label: "Gris", value: "bg-gray-100 text-brand-grey border-brand-border" },
+];
+
+function EstadosPorEmpresa() {
+  const { empresas, estadosEquipo, addEstado, updateEstado, deleteEstado } =
+    useApp();
+  const [nuevoLabel, setNuevoLabel] = useState<Record<string, string>>({});
+
+  async function handleAdd(empresaId: string) {
+    const label = (nuevoLabel[empresaId] ?? "").trim();
+    if (!label) return;
+    const clave = label
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const estadosEmpresa = estadosEquipo.filter(
+      (e) => e.empresaId === empresaId
+    );
+    await addEstado({
+      empresaId,
+      entidad: "equipo",
+      clave,
+      label,
+      color: COLOR_OPTIONS[0].value,
+      orden: estadosEmpresa.length,
+      esFinal: false,
+      activo: true,
+    });
+    setNuevoLabel((prev) => ({ ...prev, [empresaId]: "" }));
+  }
+
+  return (
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+        <ListChecks size={20} className="text-brand-blue" />
+        Estados de Equipos por Empresa
+      </h2>
+      <p className="text-sm text-brand-grey mb-6">
+        Define las etapas por las que pasa un equipo en el taller, por
+        empresa (SM-EM / REMINING).
+      </p>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {empresas.map((empresa) => {
+          const estados = estadosEquipo
+            .filter((e) => e.empresaId === empresa.id)
+            .sort((a, b) => a.orden - b.orden);
+          return (
+            <div key={empresa.id} className="border border-brand-border rounded-lg p-4">
+              <h3 className="font-semibold mb-3">{empresa.nombre}</h3>
+              <table className="w-full text-sm mb-3">
+                <thead>
+                  <tr className="text-brand-grey text-xs">
+                    <th className="text-left p-1.5 font-medium">Label</th>
+                    <th className="text-left p-1.5 font-medium">Color</th>
+                    <th className="text-center p-1.5 font-medium">Final</th>
+                    <th className="text-center p-1.5 font-medium">Activo</th>
+                    <th className="text-right p-1.5 font-medium">—</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {estados.map((e: EstadoDefinicion) => (
+                    <tr key={e.id} className="border-t border-brand-border/50">
+                      <td className="p-1.5">
+                        <input
+                          className="input-field py-1 text-sm"
+                          value={e.label}
+                          onChange={(ev) =>
+                            updateEstado(e.id, { label: ev.target.value })
+                          }
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <select
+                          className="input-field py-1 text-sm"
+                          value={e.color}
+                          onChange={(ev) =>
+                            updateEstado(e.id, { color: ev.target.value })
+                          }
+                        >
+                          {COLOR_OPTIONS.map((c) => (
+                            <option key={c.value} value={c.value}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-1.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={e.esFinal}
+                          onChange={(ev) =>
+                            updateEstado(e.id, { esFinal: ev.target.checked })
+                          }
+                        />
+                      </td>
+                      <td className="p-1.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={e.activo}
+                          onChange={(ev) =>
+                            updateEstado(e.id, { activo: ev.target.checked })
+                          }
+                        />
+                      </td>
+                      <td className="p-1.5 text-right">
+                        <button
+                          onClick={() => deleteEstado(e.id)}
+                          className="p-1 text-brand-grey hover:text-red-400 transition-colors"
+                          aria-label="Eliminar"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex gap-2">
+                <input
+                  className="input-field py-1.5 text-sm flex-1"
+                  placeholder="Nuevo estado..."
+                  value={nuevoLabel[empresa.id] ?? ""}
+                  onChange={(ev) =>
+                    setNuevoLabel((prev) => ({
+                      ...prev,
+                      [empresa.id]: ev.target.value,
+                    }))
+                  }
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter") {
+                      ev.preventDefault();
+                      handleAdd(empresa.id);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => handleAdd(empresa.id)}
+                  className="btn-secondary flex items-center gap-1.5 text-sm px-3"
+                >
+                  <Plus size={14} />
+                  Agregar
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function ConfiguracionPage() {
   const {
@@ -164,6 +326,10 @@ export default function ConfiguracionPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-6">
+        <EstadosPorEmpresa />
       </div>
     </>
   );

@@ -20,20 +20,20 @@ const EMPRESA_REMINING = "REMINING";
 
 // Estados propuestos en el informe de evaluación del cliente, por empresa.
 const ESTADOS_SM_EM = [
-  { clave: "en_taller", label: "En Taller", color: "#3b82f6", esFinal: false },
-  { clave: "desarme_proceso", label: "Desarme en Proceso", color: "#8b5cf6", esFinal: false },
-  { clave: "espera_repuestos", label: "Espera Repuesto/Terceros", color: "#ef4444", esFinal: false },
-  { clave: "reparacion_mantencion", label: "Reparación/Mantención en Proceso", color: "#f59e0b", esFinal: false },
-  { clave: "finalizado", label: "Finalizado", color: "#22c55e", esFinal: true },
+  { clave: "en_taller", label: "En Taller", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", esFinal: false },
+  { clave: "desarme_proceso", label: "Desarme en Proceso", color: "bg-purple-500/20 text-purple-400 border-purple-500/30", esFinal: false },
+  { clave: "espera_repuestos", label: "Espera Repuesto/Terceros", color: "bg-red-500/20 text-red-400 border-red-500/30", esFinal: false },
+  { clave: "reparacion_mantencion", label: "Reparación/Mantención en Proceso", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", esFinal: false },
+  { clave: "finalizado", label: "Finalizado", color: "bg-green-500/20 text-green-400 border-green-500/30", esFinal: true },
 ];
 
 const ESTADOS_REMINING = [
-  { clave: "recepcion", label: "Recepción", color: "#3b82f6", esFinal: false },
-  { clave: "evaluacion", label: "Evaluación", color: "#6366f1", esFinal: false },
-  { clave: "espera_oc", label: "Espera OC", color: "#eab308", esFinal: false },
-  { clave: "espera_repuestos", label: "Espera de Repuesto/Terceros", color: "#ef4444", esFinal: false },
-  { clave: "reparacion", label: "Reparación", color: "#f59e0b", esFinal: false },
-  { clave: "finalizado", label: "Finalizado", color: "#22c55e", esFinal: true },
+  { clave: "recepcion", label: "Recepción", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", esFinal: false },
+  { clave: "evaluacion", label: "Evaluación", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30", esFinal: false },
+  { clave: "espera_oc", label: "Espera OC", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30", esFinal: false },
+  { clave: "espera_repuestos", label: "Espera de Repuesto/Terceros", color: "bg-red-500/20 text-red-400 border-red-500/30", esFinal: false },
+  { clave: "reparacion", label: "Reparación", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", esFinal: false },
+  { clave: "finalizado", label: "Finalizado", color: "bg-green-500/20 text-green-400 border-green-500/30", esFinal: true },
 ];
 
 const TIPOS_EQUIPO_COMPONENTE = [
@@ -70,14 +70,14 @@ async function main() {
   for (const [i, e] of ESTADOS_SM_EM.entries()) {
     await prisma.estadoDefinicion.upsert({
       where: { empresaId_entidad_clave: { empresaId: empresaSmEm.id, entidad: "equipo", clave: e.clave } },
-      update: {},
+      update: { label: e.label, color: e.color, esFinal: e.esFinal, orden: i },
       create: { empresaId: empresaSmEm.id, entidad: "equipo", orden: i, ...e },
     });
   }
   for (const [i, e] of ESTADOS_REMINING.entries()) {
     await prisma.estadoDefinicion.upsert({
       where: { empresaId_entidad_clave: { empresaId: empresaRemining.id, entidad: "equipo", clave: e.clave } },
-      update: {},
+      update: { label: e.label, color: e.color, esFinal: e.esFinal, orden: i },
       create: { empresaId: empresaRemining.id, entidad: "equipo", orden: i, ...e },
     });
   }

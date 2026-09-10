@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Trash2, History } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import StatusBadge from "@/components/StatusBadge";
@@ -15,6 +15,17 @@ import {
   type EstadoRepuestoAsignado,
 } from "@/lib/types";
 import { equipoListoParaContinuar } from "@/lib/inventario";
+
+interface HistorialEstadoRow {
+  id: string;
+  entidadTipo: string;
+  entidadId: string;
+  estadoAnterior: string;
+  estadoNuevo: string;
+  usuarioId: string | null;
+  fecha: string;
+  nota: string;
+}
 
 export default function EquipoDetailPage() {
   const params = useParams();
@@ -29,10 +40,35 @@ export default function EquipoDetailPage() {
     asignarRepuesto,
     actualizarAsignacionRepuesto,
     deleteAsignacionRepuesto,
+    estadosEquipo,
+    getEstadoInfo,
+    getUsuarioById,
+    currentUser,
   } = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(createEmptyAsignacionRepuesto(equipoId));
+  const [historial, setHistorial] = useState<HistorialEstadoRow[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHistorialLoading(true);
+    fetch(`/api/historial?entidadTipo=equipo&entidadId=${equipoId}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled) setHistorial(data);
+      })
+      .catch(() => {
+        if (!cancelled) setHistorial([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHistorialLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [equipoId]);
 
   const equipo = getEquipoById(equipoId);
 
@@ -87,7 +123,31 @@ export default function EquipoDetailPage() {
               {equipo.nroSerie}
             </p>
           </div>
-          <StatusBadge estado={equipo.estado} />
+          <div className="flex items-center gap-3">
+            <StatusBadge
+              label={getEstadoInfo(equipo).label}
+              color={getEstadoInfo(equipo).color}
+            />
+            <select
+              value={equipo.estado}
+              onChange={(e) =>
+                updateEquipo(equipo.id, {
+                  estado: e.target.value,
+                  usuarioId: currentUser.id,
+                })
+              }
+              className="input-field w-auto text-sm py-1.5"
+            >
+              {estadosEquipo
+                .filter((e) => e.activo && e.empresaId === equipo.empresaId)
+                .sort((a, b) => a.orden - b.orden)
+                .map((e) => (
+                  <option key={e.id} value={e.clave}>
+                    {e.label}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -108,7 +168,21 @@ export default function EquipoDetailPage() {
             </div>
           </div>
           <button
-            onClick={() => updateEquipo(equipo.id, { estado: "reparacion" })}
+            onClick={() => {
+              const estadosOrdenados = estadosEquipo
+                .filter((e) => e.activo && e.empresaId === equipo.empresaId)
+                .sort((a, b) => a.orden - b.orden);
+              const actualIdx = estadosOrdenados.findIndex(
+                (e) => e.clave === equipo.estado
+              );
+              const siguiente =
+                estadosOrdenados[actualIdx + 1] ??
+                estadosOrdenados.find((e) => e.clave.includes("reparacion"));
+              updateEquipo(equipo.id, {
+                estado: siguiente?.clave ?? "reparacion",
+                usuarioId: currentUser.id,
+              });
+            }}
             className="btn-primary whitespace-nowrap"
           >
             Continuar reparación
@@ -286,6 +360,74 @@ export default function EquipoDetailPage() {
                 </p>
                 <p className="text-sm">{equipo.descripcionTrabajo}</p>
               </>
+            )}
+          </div>
+
+          <div className="card p-6">
+            <h2 className="text-sm font-semibold text-brand-blue uppercase tracking-wide mb-4 flex items-center gap-2">
+              <History size={16} />
+              Historial / Trazabilidad
+            </h2>
+            {historialLoading ? (
+              <p className="text-sm text-brand-grey py-4 text-center">
+                Cargando historial...
+              </p>
+            ) : historial.length === 0 ? (
+              <p className="text-sm text-brand-grey py-4 text-center">
+                Sin cambios de estado registrados
+              </p>
+            ) : (
+              <ul className="space-y-4">
+                {historial.map((h, i) => {
+                  const anterior = estadosEquipo.find(
+                    (e) =>
+                      e.empresaId === equipo.empresaId &&
+                      e.clave === h.estadoAnterior
+                  );
+                  const nuevo = estadosEquipo.find(
+                    (e) =>
+                      e.empresaId === equipo.empresaId &&
+                      e.clave === h.estadoNuevo
+                  );
+                  const usuario = h.usuarioId
+                    ? getUsuarioById(h.usuarioId)
+                    : undefined;
+                  const prevFecha = i > 0 ? historial[i - 1].fecha : null;
+                  const dias = prevFecha
+                    ? Math.round(
+                        (new Date(h.fecha).getTime() -
+                          new Date(prevFecha).getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )
+                    : null;
+                  return (
+                    <li
+                      key={h.id}
+                      className="border-l-2 border-brand-blue/30 pl-4 relative"
+                    >
+                      <span className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-brand-blue" />
+                      <p className="text-xs text-brand-grey">
+                        {new Date(h.fecha).toLocaleString("es-CL")}
+                        {usuario ? ` — ${usuario.nombre}` : ""}
+                      </p>
+                      <p className="text-sm mt-0.5">
+                        <span className="text-brand-grey">
+                          {anterior?.label ?? h.estadoAnterior}
+                        </span>{" "}
+                        →{" "}
+                        <span className="font-medium">
+                          {nuevo?.label ?? h.estadoNuevo}
+                        </span>
+                      </p>
+                      {dias !== null && (
+                        <p className="text-xs text-brand-grey mt-0.5">
+                          {dias} día{dias === 1 ? "" : "s"} en la etapa anterior
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         </div>

@@ -8,15 +8,19 @@ import { Truck, Wrench, Package, Users } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
-  const { equipos, clientes, getClienteById } = useApp();
+  const { equipos, clientes, getClienteById, getEstadoInfo } = useApp();
 
+  // Claves "legacy" (SM-EM) usadas por el dataset sembrado hoy; los KPIs configurables
+  // por usuario (obs. #1) reemplazarán estas tarjetas fijas en una fase posterior.
   const enTaller = equipos.filter((e) => e.estado === "en_taller").length;
-  const enReparacion = equipos.filter((e) => e.estado === "reparacion").length;
+  const enReparacion = equipos.filter(
+    (e) => e.estado === "reparacion" || e.estado === "reparacion_mantencion"
+  ).length;
   const esperaRepuestos = equipos.filter(
     (e) => e.estado === "espera_repuestos"
   ).length;
 
-  const equiposActivos = equipos.filter((e) => e.estado !== "finalizado");
+  const equiposActivos = equipos.filter((e) => !getEstadoInfo(e).esFinal);
 
   return (
     <>
@@ -93,7 +97,10 @@ export default function DashboardPage() {
                     <td className="p-4 font-mono text-xs">{equipo.nroSerie}</td>
                     <td className="p-4">{cliente?.razonSocial ?? "—"}</td>
                     <td className="p-4">
-                      <StatusBadge estado={equipo.estado} />
+                      <StatusBadge
+                        label={getEstadoInfo(equipo).label}
+                        color={getEstadoInfo(equipo).color}
+                      />
                     </td>
                     <td className="p-4 text-brand-grey max-w-xs truncate">
                       {equipo.descripcionTrabajo}

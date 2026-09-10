@@ -143,12 +143,19 @@ interface AppContextType {
   getTipoEquipoComponenteById: (id: string) => TipoEquipoComponente | undefined;
   getChecklistTemplateById: (id: string) => ChecklistTemplate | undefined;
   getKpiById: (id: string) => KpiDefinicion | undefined;
+  getEstadoInfo: (equipo: Equipo) => EstadoDefinicion;
+  addEstado: (data: Omit<EstadoDefinicion, "id">) => Promise<void>;
+  updateEstado: (id: string, data: Partial<Omit<EstadoDefinicion, "id">>) => Promise<void>;
+  deleteEstado: (id: string) => Promise<void>;
   addCliente: (data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   updateCliente: (id: string, data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   deleteCliente: (id: string) => Promise<void>;
   getClienteById: (id: string) => Cliente | undefined;
   addEquipo: (data: Omit<Equipo, "id">) => Promise<void>;
-  updateEquipo: (id: string, data: Partial<Omit<Equipo, "id">>) => Promise<void>;
+  updateEquipo: (
+    id: string,
+    data: Partial<Omit<Equipo, "id">> & { usuarioId?: string }
+  ) => Promise<void>;
   deleteEquipo: (id: string) => Promise<void>;
   addColaborador: (data: Omit<Colaborador, "id">) => Promise<void>;
   updateColaborador: (id: string, data: Omit<Colaborador, "id">) => Promise<void>;
@@ -400,6 +407,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [kpis]
   );
 
+  const getEstadoInfo = useCallback(
+    (equipo: Equipo): EstadoDefinicion => {
+      const match = estadosEquipo.find(
+        (e) => e.empresaId === equipo.empresaId && e.clave === equipo.estado
+      );
+      return (
+        match ?? {
+          id: "",
+          empresaId: equipo.empresaId,
+          entidad: "equipo",
+          clave: equipo.estado,
+          label: equipo.estado,
+          color: "bg-gray-100 text-brand-grey border-brand-border",
+          orden: 0,
+          esFinal: false,
+          activo: true,
+        }
+      );
+    },
+    [estadosEquipo]
+  );
+
+  const addEstado = useCallback(async (data: Omit<EstadoDefinicion, "id">) => {
+    const estado = await fetchJson<EstadoDefinicion>("/api/estados", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setEstadosEquipo((prev) => [...prev, estado]);
+  }, []);
+
+  const updateEstado = useCallback(
+    async (id: string, data: Partial<Omit<EstadoDefinicion, "id">>) => {
+      const estado = await fetchJson<EstadoDefinicion>(`/api/estados/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setEstadosEquipo((prev) => prev.map((e) => (e.id === id ? estado : e)));
+    },
+    []
+  );
+
+  const deleteEstado = useCallback(async (id: string) => {
+    await fetchJson(`/api/estados/${id}`, { method: "DELETE" });
+    setEstadosEquipo((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
   const pushEmail = useCallback((email: EmailNotificacion) => {
     setEmails((prev) => [email, ...prev]);
     setLastEmail(email);
@@ -565,7 +618,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateEquipo = useCallback(
-    async (id: string, data: Partial<Omit<Equipo, "id">>) => {
+    async (
+      id: string,
+      data: Partial<Omit<Equipo, "id">> & { usuarioId?: string }
+    ) => {
       const equipo = await fetchJson<Equipo>(`/api/equipos/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -837,6 +893,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getTipoEquipoComponenteById,
         getChecklistTemplateById,
         getKpiById,
+        getEstadoInfo,
+        addEstado,
+        updateEstado,
+        deleteEstado,
         addCliente,
         updateCliente,
         deleteCliente,

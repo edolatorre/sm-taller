@@ -1,15 +1,14 @@
-import { ESTADO_COLORS, ESTADO_LABELS, type EstadoEquipo } from "@/lib/types";
-
 interface StatusBadgeProps {
-  estado: EstadoEquipo;
+  label: string;
+  color: string;
 }
 
-export default function StatusBadge({ estado }: StatusBadgeProps) {
+export default function StatusBadge({ label, color }: StatusBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${ESTADO_COLORS[estado]}`}
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${color}`}
     >
-      {ESTADO_LABELS[estado]}
+      {label}
     </span>
   );
 }
