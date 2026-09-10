@@ -10,22 +10,77 @@ function diasDesde(fecha: Date): number {
 }
 
 export async function getResumenSemanal() {
-  const [equipos, ordenes, repuestos, historialOrdenes] = await Promise.all([
-    prisma.equipo.findMany({ select: { id: true, estado: true, marca: true, modelo: true, nroSerie: true } }),
-    prisma.ordenTrabajo.findMany({
-      select: { id: true, numeroOT: true, estado: true, etapa: true, descripcion: true },
-    }),
-    prisma.repuesto.findMany({ select: { id: true, stock: true, stockMinimo: true } }),
-    prisma.historialEstado.findMany({
-      where: { entidadTipo: "orden_trabajo" },
-      orderBy: { fecha: "desc" },
-    }),
-  ]);
+  const haceUnaSemana = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const haceUnaSemanaStr = haceUnaSemana.toISOString().split("T")[0];
+
+  const [equipos, ordenes, repuestos, historialOrdenes, estadoDefs, clientes, actasCalidad, actasRecepcion, tareasSemana] =
+    await Promise.all([
+      prisma.equipo.findMany({
+        select: {
+          id: true,
+          estado: true,
+          empresaId: true,
+          marca: true,
+          modelo: true,
+          nroSerie: true,
+          fechaIngreso: true,
+          descripcionTrabajo: true,
+          propietario: { select: { razonSocial: true } },
+        },
+      }),
+      prisma.ordenTrabajo.findMany({
+        select: {
+          id: true,
+          numeroOT: true,
+          estado: true,
+          etapa: true,
+          descripcion: true,
+          personalCargo: true,
+        },
+      }),
+      prisma.repuesto.findMany({
+        select: { nroParte: true, descripcion: true, stock: true, stockMinimo: true, proveedor: true },
+      }),
+      prisma.historialEstado.findMany({
+        where: { entidadTipo: "orden_trabajo" },
+        orderBy: { fecha: "desc" },
+      }),
+      prisma.estadoDefinicion.findMany({ where: { entidad: "equipo" } }),
+      prisma.cliente.findMany({ select: { id: true } }),
+      prisma.actaCalidad.findMany({
+        where: { estado: "borrador" },
+        select: { tipoActa: true, fecha: true, equipo: { select: { marca: true, modelo: true } } },
+      }),
+      prisma.actaRecepcion.findMany({
+        where: { estado: "borrador" },
+        select: { tipoActa: true, fecha: true, equipo: { select: { marca: true, modelo: true } } },
+      }),
+      prisma.asignacionTarea.findMany({
+        where: { fechaAsignacion: { gte: haceUnaSemanaStr } },
+        select: { horasTrabajadas: true, colaborador: { select: { nombre: true } } },
+      }),
+    ]);
+
+  const estadoLabel = (empresaId: string, clave: string) =>
+    estadoDefs.find((e) => e.empresaId === empresaId && e.clave === clave)?.label ?? clave;
 
   const equiposPorEstado: Record<string, number> = {};
   for (const e of equipos) {
-    equiposPorEstado[e.estado] = (equiposPorEstado[e.estado] ?? 0) + 1;
+    const label = estadoLabel(e.empresaId, e.estado);
+    equiposPorEstado[label] = (equiposPorEstado[label] ?? 0) + 1;
   }
+
+  const equiposEnTallerDetalle = equipos
+    .filter((e) => !estadoDefs.find((d) => d.empresaId === e.empresaId && d.clave === e.estado)?.esFinal)
+    .map((e) => ({
+      equipo: `${e.marca} ${e.modelo}`,
+      nroSerie: e.nroSerie,
+      cliente: e.propietario?.razonSocial ?? "—",
+      estado: estadoLabel(e.empresaId, e.estado),
+      diasEnTaller: diasDesde(new Date(e.fechaIngreso)),
+      trabajo: e.descripcionTrabajo,
+    }))
+    .sort((a, b) => b.diasEnTaller - a.diasEnTaller);
 
   const ordenesActivas = ordenes.filter((o) => o.estado === "activa" || o.estado === "en_proceso").length;
   const ordenesPausadas = ordenes.filter((o) => o.estado === "pausada").length;
@@ -43,21 +98,69 @@ export async function getResumenSemanal() {
     .map((o) => {
       const ultimoCambio = ultimoCambioPorOrden.get(o.id);
       const dias = ultimoCambio ? diasDesde(ultimoCambio) : DIAS_ESTANCADO;
-      return { numeroOT: o.numeroOT, descripcion: o.descripcion, etapa: o.etapa, diasSinAvance: dias };
+      return {
+        numeroOT: o.numeroOT,
+        descripcion: o.descripcion,
+        etapa: ETAPA_LABELS[o.etapa as EtapaOT] ?? o.etapa,
+        personalCargo: o.personalCargo || "—",
+        diasSinAvance: dias,
+      };
     })
     .sort((a, b) => b.diasSinAvance - a.diasSinAvance)
-    .slice(0, 5);
+    .slice(0, 10);
 
-  const repuestosBajoStock = repuestos.filter((r) => r.stock <= r.stockMinimo).length;
+  const repuestosBajoStockDetalle = repuestos
+    .filter((r) => r.stock <= r.stockMinimo)
+    .map((r) => ({
+      nroParte: r.nroParte,
+      descripcion: r.descripcion,
+      stock: r.stock,
+      stockMinimo: r.stockMinimo,
+      proveedor: r.proveedor || "—",
+    }));
+
+  const checklistsPendientes = [
+    ...actasCalidad.map((a) => ({
+      tipo: "Control de Calidad",
+      equipo: a.equipo ? `${a.equipo.marca} ${a.equipo.modelo}` : "—",
+      tipoActa: a.tipoActa,
+      fecha: a.fecha,
+    })),
+    ...actasRecepcion.map((a) => ({
+      tipo: "Recepción y Entrega",
+      equipo: a.equipo ? `${a.equipo.marca} ${a.equipo.modelo}` : "—",
+      tipoActa: a.tipoActa,
+      fecha: a.fecha,
+    })),
+  ].sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+
+  const horasHombreSemanaPorColaborador = new Map<string, number>();
+  let horasHombreSemanaTotal = 0;
+  for (const t of tareasSemana) {
+    const horas = t.horasTrabajadas ? Number(t.horasTrabajadas) : 0;
+    horasHombreSemanaTotal += horas;
+    const nombre = t.colaborador.nombre;
+    horasHombreSemanaPorColaborador.set(nombre, (horasHombreSemanaPorColaborador.get(nombre) ?? 0) + horas);
+  }
+  const horasHombreSemana = Array.from(horasHombreSemanaPorColaborador.entries())
+    .map(([colaborador, horas]) => ({ colaborador, horas }))
+    .sort((a, b) => b.horas - a.horas);
 
   return {
     equiposPorEstado,
     totalEquipos: equipos.length,
+    equiposEnTallerDetalle,
     ordenesActivas,
     ordenesPausadas,
     ordenesTerminadas,
+    totalOrdenes: ordenes.length,
     otsSinAvance,
-    repuestosBajoStock,
+    repuestosBajoStock: repuestosBajoStockDetalle.length,
+    repuestosBajoStockDetalle,
+    checklistsPendientes,
+    clientesActivos: clientes.length,
+    horasHombreSemanaTotal,
+    horasHombreSemana,
   };
 }
 
