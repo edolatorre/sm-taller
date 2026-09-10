@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Eye, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, CheckCircle2, Search } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
@@ -28,6 +28,7 @@ export default function EquiposPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(createEmptyEquipo());
   const [filter, setFilter] = useState<string>("todos");
+  const [busqueda, setBusqueda] = useState("");
 
   // Sin selector multi-empresa todavía: se derivan los estados disponibles para
   // los tabs/select desde la empresa del primer equipo listado (app demo-grade).
@@ -36,10 +37,23 @@ export default function EquiposPage() {
     .filter((e) => e.activo && e.empresaId === empresaIdRef)
     .sort((a, b) => a.orden - b.orden);
 
-  const filtered =
-    filter === "todos"
-      ? equipos
-      : equipos.filter((e) => e.estado === filter);
+  const termino = busqueda.trim().toLowerCase();
+  const filtered = equipos
+    .filter((e) => filter === "todos" || e.estado === filter)
+    .filter((e) => {
+      if (!termino) return true;
+      const cliente = getClienteById(e.propietarioId);
+      const haystack = [
+        e.marca,
+        e.modelo,
+        e.nroSerie,
+        e.nroMotor,
+        cliente?.razonSocial ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(termino);
+    });
 
   function openCreate() {
     setEditing(null);
@@ -87,23 +101,38 @@ export default function EquiposPage() {
         }
       />
 
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {[
-          { key: "todos", label: "Todos" },
-          ...estadosDeLaEmpresa.map((e) => ({ key: e.clave, label: e.label })),
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === key
-                ? "bg-brand-blue/10 text-brand-blue border border-brand-blue/20"
-                : "text-brand-grey hover:text-brand-dark bg-white border border-brand-border"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="relative flex-1 max-w-sm">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-grey"
+          />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por marca, modelo, serie o cliente..."
+            className="input-field pl-9 w-full"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { key: "todos", label: "Todos" },
+            ...estadosDeLaEmpresa.map((e) => ({ key: e.clave, label: e.label })),
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filter === key
+                  ? "bg-brand-blue/10 text-brand-blue border border-brand-blue/20"
+                  : "text-brand-grey hover:text-brand-dark bg-white border border-brand-border"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="card overflow-x-auto">

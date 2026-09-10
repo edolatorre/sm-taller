@@ -6,7 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import Modal from "@/components/Modal";
-import { Settings2, ArrowUp, ArrowDown } from "lucide-react";
+import { Settings2, ArrowUp, ArrowDown, Search } from "lucide-react";
 import Link from "next/link";
 import { calcularKpi } from "@/lib/kpi-calculators";
 import { getKpiIcon, getKpiColorClasses } from "@/lib/kpi-icons";
@@ -24,12 +24,15 @@ export default function DashboardPage() {
     kpiPreferencias,
     getKpiPreferencias,
     updateKpiPreferencias,
+    estadosEquipo,
   } = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<
     { kpiId: string; orden: number; visible: boolean }[]
   >([]);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("todos");
 
   useEffect(() => {
     if (currentUser.id) {
@@ -39,6 +42,29 @@ export default function DashboardPage() {
   }, [currentUser.id]);
 
   const equiposActivos = equipos.filter((e) => !getEstadoInfo(e).esFinal);
+
+  const empresaIdRef = equiposActivos[0]?.empresaId ?? equipos[0]?.empresaId;
+  const estadosDeLaEmpresa = estadosEquipo
+    .filter((e) => e.activo && e.empresaId === empresaIdRef)
+    .sort((a, b) => a.orden - b.orden);
+
+  const termino = busqueda.trim().toLowerCase();
+  const equiposFiltrados = equiposActivos
+    .filter((e) => filtroEstado === "todos" || e.estado === filtroEstado)
+    .filter((e) => {
+      if (!termino) return true;
+      const cliente = getClienteById(e.propietarioId);
+      const haystack = [
+        e.marca,
+        e.modelo,
+        e.nroSerie,
+        e.descripcionTrabajo,
+        cliente?.razonSocial ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(termino);
+    });
 
   const kpiCtx = { equipos, clientes, ordenes, repuestos, getEstadoInfo };
 
@@ -137,6 +163,46 @@ export default function DashboardPage() {
             Ver todos →
           </Link>
         </div>
+        <div className="p-4 border-b border-brand-border flex flex-col sm:flex-row gap-3 sm:items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-grey"
+            />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por equipo, serie o cliente..."
+              className="input-field pl-9 w-full"
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setFiltroEstado("todos")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                filtroEstado === "todos"
+                  ? "bg-brand-blue text-white border-brand-blue"
+                  : "bg-white text-brand-grey border-brand-border hover:bg-gray-50"
+              }`}
+            >
+              Todos
+            </button>
+            {estadosDeLaEmpresa.map((estado) => (
+              <button
+                key={estado.id}
+                onClick={() => setFiltroEstado(estado.clave)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  filtroEstado === estado.clave
+                    ? "bg-brand-blue text-white border-brand-blue"
+                    : "bg-white text-brand-grey border-brand-border hover:bg-gray-50"
+                }`}
+              >
+                {estado.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -149,7 +215,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {equiposActivos.map((equipo) => {
+              {equiposFiltrados.map((equipo) => {
                 const cliente = getClienteById(equipo.propietarioId);
                 return (
                   <tr
@@ -178,10 +244,12 @@ export default function DashboardPage() {
                   </tr>
                 );
               })}
-              {equiposActivos.length === 0 && (
+              {equiposFiltrados.length === 0 && (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-brand-grey">
-                    No hay equipos activos en el taller
+                    {equiposActivos.length === 0
+                      ? "No hay equipos activos en el taller"
+                      : "Ningún equipo coincide con la búsqueda o el filtro"}
                   </td>
                 </tr>
               )}
