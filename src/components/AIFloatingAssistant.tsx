@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, X, Send, Loader2 } from "lucide-react";
+import { Sparkles, X, Send, Loader2, Check, XCircle } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { buildTallerContext } from "@/lib/ai/buildContext";
 import { equiposListosParaContinuar, repuestosBajoStock } from "@/lib/inventario";
-import type { ChatMessage, Recomendacion } from "@/lib/ai/types";
+import { puedeUsarAccionesIA } from "@/lib/permissions";
+import { createEmptyOrden } from "@/lib/types";
+import type { ChatMessage, AccionPropuesta, Recomendacion } from "@/lib/ai/types";
 
 const PRIMER_CHEQUEO_MS = 5_000;
 const INTERVALO_CHEQUEO_MS = 15 * 60 * 1000;
@@ -25,6 +27,8 @@ interface SesionUsuario {
   pendientes: Recomendacion[];
   hasBadge: boolean;
   error: string | null;
+  accionPendiente?: AccionPropuesta;
+  cargada: boolean;
 }
 
 const SESION_VACIA: SesionUsuario = {
@@ -32,6 +36,8 @@ const SESION_VACIA: SesionUsuario = {
   pendientes: [],
   hasBadge: false,
   error: null,
+  accionPendiente: undefined,
+  cargada: false,
 };
 
 export default function AIFloatingAssistant() {
@@ -44,8 +50,13 @@ export default function AIFloatingAssistant() {
     colaboradores,
     repuestos,
     asignacionesRepuesto,
+    addOrden,
+    asignarTarea,
+    updateEquipo,
+    actualizarAsignacionRepuesto,
   } = useApp();
   const userId = currentUser.id;
+  const puedeAcciones = puedeUsarAccionesIA(currentUser);
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -71,20 +82,49 @@ export default function AIFloatingAssistant() {
     setInput("");
   }, [userId]);
 
-  const getContexto = useCallback(
-    () =>
-      buildTallerContext({
-        usuarioActual: currentUser,
-        equipos,
-        clientes,
-        ordenes,
-        asignaciones,
-        colaboradores,
-        repuestos,
-        asignacionesRepuesto,
-      }),
-    [
-      currentUser,
+  // Carga la conversación persistida del usuario la primera vez que se
+  // necesita su sesión (ya sea porque cambió de usuario o abrió el panel).
+  useEffect(() => {
+    if (sesiones[userId]?.cargada) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/asistente/conversacion?usuarioId=${encodeURIComponent(userId)}`
+        );
+        if (!res.ok || cancelado) return;
+        const data = await res.json();
+        if (cancelado) return;
+        const mensajes: ChatMessage[] = Array.isArray(data.mensajes)
+          ? data.mensajes
+          : [];
+        actualizarSesion(userId, { messages: mensajes, cargada: true });
+      } catch {
+        // Si falla la carga de memoria persistida, se sigue con sesión vacía.
+        if (!cancelado) actualizarSesion(userId, { cargada: true });
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [userId, sesiones, actualizarSesion]);
+
+  const guardarConversacion = useCallback(
+    (id: string, mensajes: ChatMessage[]) => {
+      fetch("/api/asistente/conversacion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuarioId: id, mensajes: mensajes.slice(-40) }),
+      }).catch(() => {
+        // Fire-and-forget: si falla el guardado no bloquea la UI del chat.
+      });
+    },
+    []
+  );
+
+  const getContexto = useCallback(async () => {
+    const base = buildTallerContext({
+      usuarioActual: currentUser,
       equipos,
       clientes,
       ordenes,
@@ -92,15 +132,36 @@ export default function AIFloatingAssistant() {
       colaboradores,
       repuestos,
       asignacionesRepuesto,
-    ]
-  );
+    });
+    try {
+      const res = await fetch(
+        `/api/asistente/contexto-extra?usuarioId=${encodeURIComponent(currentUser.id)}`
+      );
+      if (!res.ok) return base;
+      const extra = await res.json();
+      return { ...base, ...extra };
+    } catch {
+      // Si el endpoint de contexto extra falla, no bloquea el chat ni las
+      // recomendaciones: se sigue con el contexto base.
+      return base;
+    }
+  }, [
+    currentUser,
+    equipos,
+    clientes,
+    ordenes,
+    asignaciones,
+    colaboradores,
+    repuestos,
+    asignacionesRepuesto,
+  ]);
 
   const checkRecomendaciones = useCallback(async () => {
     try {
       const res = await fetch("/api/recomendaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getContexto()),
+        body: JSON.stringify(await getContexto()),
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data.recomendaciones)) {
@@ -216,16 +277,22 @@ export default function AIFloatingAssistant() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mensajes: nuevos.slice(-20),
-          contexto: getContexto(),
+          contexto: await getContexto(),
+          accionesHabilitadas: puedeAcciones,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "No se pudo responder.");
       }
+      const conMensajeAsistente: ChatMessage[] = data.respuesta
+        ? [...nuevos, { role: "assistant", content: data.respuesta }]
+        : nuevos;
       actualizarSesion(idAlEnviar, {
-        messages: [...nuevos, { role: "assistant", content: data.respuesta }],
+        messages: conMensajeAsistente,
+        accionPendiente: data.accionPropuesta ?? undefined,
       });
+      guardarConversacion(idAlEnviar, conMensajeAsistente);
     } catch (err) {
       actualizarSesion(idAlEnviar, {
         error: err instanceof Error ? err.message : "Error inesperado.",
@@ -236,6 +303,105 @@ export default function AIFloatingAssistant() {
   }
 
   const enviando = sendingFor === userId;
+
+  function cancelarAccion() {
+    actualizarSesion(userId, {
+      accionPendiente: undefined,
+      messages: [...sesion.messages, { role: "assistant", content: "Acción cancelada." }],
+    });
+  }
+
+  async function confirmarAccion() {
+    const accion = sesion.accionPendiente;
+    if (!accion) return;
+    try {
+      switch (accion.tipo) {
+        case "crear_orden_trabajo": {
+          const p = accion.payload as {
+            descripcion?: string;
+            equipoId?: string;
+            personalCargo?: string;
+            etapa?: string;
+            descripcionTrabajo?: string;
+          };
+          if (!p.equipoId) throw new Error("Falta equipoId.");
+          const base = createEmptyOrden(p.equipoId);
+          await addOrden({
+            ...base,
+            descripcion: p.descripcion ?? "",
+            personalCargo: p.personalCargo ?? "",
+            etapa: (p.etapa as typeof base.etapa) ?? base.etapa,
+            descripcionTrabajo: p.descripcionTrabajo ?? "",
+            repuestos: [],
+          });
+          break;
+        }
+        case "asignar_mecanico": {
+          const p = accion.payload as {
+            ordenId?: string;
+            etapa?: string;
+            colaboradorId?: string;
+            instrucciones?: string;
+          };
+          if (!p.ordenId || !p.etapa || !p.colaboradorId) {
+            throw new Error("Faltan datos para la asignación.");
+          }
+          const resultado = await asignarTarea(
+            p.ordenId,
+            p.etapa as Parameters<typeof asignarTarea>[1],
+            p.colaboradorId,
+            p.instrucciones ?? ""
+          );
+          if (!resultado.ok) throw new Error(resultado.error ?? "No se pudo asignar.");
+          break;
+        }
+        case "cambiar_estado_equipo": {
+          const p = accion.payload as { equipoId?: string; nuevoEstado?: string };
+          if (!p.equipoId || !p.nuevoEstado) throw new Error("Faltan datos del equipo.");
+          await updateEquipo(p.equipoId, {
+            estado: p.nuevoEstado,
+            usuarioId: currentUser.id,
+          } as Parameters<typeof updateEquipo>[1]);
+          break;
+        }
+        case "marcar_repuesto_estado": {
+          const p = accion.payload as {
+            asignacionRepuestoId?: string;
+            nuevoEstado?: string;
+          };
+          if (!p.asignacionRepuestoId || !p.nuevoEstado) {
+            throw new Error("Faltan datos del repuesto.");
+          }
+          await actualizarAsignacionRepuesto(p.asignacionRepuestoId, {
+            estado: p.nuevoEstado as Parameters<typeof actualizarAsignacionRepuesto>[1]["estado"],
+          });
+          break;
+        }
+        default:
+          throw new Error("Acción no reconocida.");
+      }
+      actualizarSesion(userId, {
+        accionPendiente: undefined,
+        messages: [
+          ...sesion.messages,
+          { role: "assistant", content: `✅ Hecho: ${accion.resumenLegible}` },
+        ],
+      });
+    } catch (err) {
+      actualizarSesion(userId, {
+        accionPendiente: undefined,
+        messages: [
+          ...sesion.messages,
+          {
+            role: "assistant",
+            content: `❌ No se pudo completar la acción: ${
+              err instanceof Error ? err.message : "error desconocido"
+            }`,
+          },
+        ],
+      });
+    }
+  }
 
   return (
     <>
@@ -283,6 +449,26 @@ export default function AIFloatingAssistant() {
                 {renderConNegritas(m.content)}
               </div>
             ))}
+            {sesion.accionPendiente && (
+              <div className="text-sm rounded-lg px-3 py-2 mr-8 bg-amber-50 border border-amber-300 text-amber-900 space-y-2">
+                <p className="font-medium">Propuesta de acción</p>
+                <p>{sesion.accionPendiente.resumenLegible}</p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={confirmarAccion}
+                    className="btn-primary text-xs px-2.5 py-1.5 flex items-center gap-1"
+                  >
+                    <Check size={14} /> Confirmar
+                  </button>
+                  <button
+                    onClick={cancelarAccion}
+                    className="text-xs px-2.5 py-1.5 rounded-md border border-brand-border flex items-center gap-1 hover:bg-brand-muted"
+                  >
+                    <XCircle size={14} /> Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
             {enviando && (
               <div className="flex items-center gap-2 text-sm text-brand-grey">
                 <Loader2 size={14} className="animate-spin" /> Pensando...

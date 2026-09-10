@@ -61,6 +61,40 @@ export interface RepuestoBajoStockResumen {
   stockMinimo: number;
 }
 
+export interface OtEstancadaResumen {
+  numeroOT: string;
+  descripcion: string;
+  etapaActual: string;
+  diasSinAvance: number;
+}
+
+export interface EquipoEstancadoResumen {
+  equipo: string;
+  nroSerie: string;
+  estadoActual: string;
+  diasSinAvance: number;
+}
+
+export interface ChecklistPendienteResumen {
+  tipo: "recepcion" | "calidad";
+  equipo: string;
+  tipoActa: string;
+  fecha: string;
+}
+
+export interface HorasHombreColaboradorResumen {
+  colaborador: string;
+  totalHoras: number;
+}
+
+export interface ContextoExtra {
+  otsEstancadas: OtEstancadaResumen[];
+  equiposEstancados: EquipoEstancadoResumen[];
+  checklistsPendientes: ChecklistPendienteResumen[];
+  horasHombrePorColaborador: HorasHombreColaboradorResumen[];
+  adjuntosRecientes: number;
+}
+
 export interface TallerContext {
   fecha: string;
   usuarioActual: UsuarioActual;
@@ -73,6 +107,11 @@ export interface TallerContext {
   equiposListosParaContinuar: EquipoListoResumen[];
   repuestosPendientesLlegada: RepuestoPendienteResumen[];
   repuestosBajoStock: RepuestoBajoStockResumen[];
+  otsEstancadas?: OtEstancadaResumen[];
+  equiposEstancados?: EquipoEstancadoResumen[];
+  checklistsPendientes?: ChecklistPendienteResumen[];
+  horasHombrePorColaborador?: HorasHombreColaboradorResumen[];
+  adjuntosRecientes?: number;
 }
 
 export type PrioridadRecomendacion = "alta" | "media" | "baja";
@@ -89,8 +128,23 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface AccionPropuesta {
+  tipo: string;
+  payload: Record<string, unknown>;
+  resumenLegible: string;
+}
+
+export interface ChatResultado {
+  respuesta: string;
+  accionPropuesta?: AccionPropuesta;
+}
+
 export interface AIProvider {
   readonly nombre: string;
   getRecomendaciones(contexto: TallerContext): Promise<Recomendacion[]>;
-  chat(mensajes: ChatMessage[], contexto: TallerContext): Promise<string>;
+  chat(
+    mensajes: ChatMessage[],
+    contexto: TallerContext,
+    opciones?: { accionesHabilitadas?: boolean }
+  ): Promise<ChatResultado>;
 }

@@ -360,3 +360,14 @@ model UsuarioKpiPreferencia {
 
   @@unique([usuarioId, kpiId])
 }
+
+// ---------------------------------------------------------------------------
+// Memoria de conversación del Supervisor IA (una fila por usuario)
+// ---------------------------------------------------------------------------
+
+model ConversacionIA {
+  id        String   @id @default(cuid())
+  usuarioId String   @unique
+  mensajes  Json
+  updatedAt DateTime @updatedAt
+}
