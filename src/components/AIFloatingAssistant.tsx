@@ -71,20 +71,9 @@ export default function AIFloatingAssistant() {
     setInput("");
   }, [userId]);
 
-  const getContexto = useCallback(
-    () =>
-      buildTallerContext({
-        usuarioActual: currentUser,
-        equipos,
-        clientes,
-        ordenes,
-        asignaciones,
-        colaboradores,
-        repuestos,
-        asignacionesRepuesto,
-      }),
-    [
-      currentUser,
+  const getContexto = useCallback(async () => {
+    const base = buildTallerContext({
+      usuarioActual: currentUser,
       equipos,
       clientes,
       ordenes,
@@ -92,15 +81,36 @@ export default function AIFloatingAssistant() {
       colaboradores,
       repuestos,
       asignacionesRepuesto,
-    ]
-  );
+    });
+    try {
+      const res = await fetch(
+        `/api/asistente/contexto-extra?usuarioId=${encodeURIComponent(currentUser.id)}`
+      );
+      if (!res.ok) return base;
+      const extra = await res.json();
+      return { ...base, ...extra };
+    } catch {
+      // Si el endpoint de contexto extra falla, no bloquea el chat ni las
+      // recomendaciones: se sigue con el contexto base.
+      return base;
+    }
+  }, [
+    currentUser,
+    equipos,
+    clientes,
+    ordenes,
+    asignaciones,
+    colaboradores,
+    repuestos,
+    asignacionesRepuesto,
+  ]);
 
   const checkRecomendaciones = useCallback(async () => {
     try {
       const res = await fetch("/api/recomendaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getContexto()),
+        body: JSON.stringify(await getContexto()),
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data.recomendaciones)) {
@@ -216,7 +226,7 @@ export default function AIFloatingAssistant() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mensajes: nuevos.slice(-20),
-          contexto: getContexto(),
+          contexto: await getContexto(),
         }),
       });
       const data = await res.json();

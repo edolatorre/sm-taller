@@ -17,6 +17,7 @@ import {
   Settings,
   Menu,
   X,
+  FileBarChart,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -36,6 +37,7 @@ const ICONOS: Record<ModuloId, LucideIcon> = {
   colaboradores: HardHat,
   usuarios: UserCog,
   configuracion: Settings,
+  reportes: FileBarChart,
 };
 
 export default function Sidebar() {

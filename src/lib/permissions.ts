@@ -11,7 +11,8 @@ export type ModuloId =
   | "clientes"
   | "colaboradores"
   | "usuarios"
-  | "configuracion";
+  | "configuracion"
+  | "reportes";
 
 export const MODULOS: {
   id: ModuloId;
@@ -30,6 +31,7 @@ export const MODULOS: {
   { id: "colaboradores", label: "Colaboradores", ruta: "/colaboradores", descripcion: "Personal del taller" },
   { id: "usuarios", label: "Usuarios", ruta: "/usuarios", descripcion: "Cuentas de acceso" },
   { id: "configuracion", label: "Configuración", ruta: "/configuracion", descripcion: "Roles y permisos del sistema" },
+  { id: "reportes", label: "Reportes", ruta: "/reportes", descripcion: "Reportería en PDF del taller" },
 ];
 
 export const PERMISOS_POR_ROL: Record<RolUsuario, ModuloId[]> = {
@@ -44,6 +46,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, ModuloId[]> = {
     "control_calidad",
     "clientes",
     "colaboradores",
+    "reportes",
   ],
   tecnico: ["mis_tareas"],
   recepcion: ["dashboard", "equipos", "inventario", "clientes", "recepcion_entrega"],

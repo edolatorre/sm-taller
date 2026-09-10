@@ -12,6 +12,12 @@ equipo (marca, modelo, N° serie) y que ya puede pasar de "Espera de Repuestos" 
 en Proceso" porque todos sus repuestos fueron recibidos. No omitas ninguno de estos casos.
 Si "repuestosBajoStock" no está vacío, considera avisar sobre el riesgo de quiebre de stock.
 
+Regla obligatoria sobre estancamiento: si "otsEstancadas" o "equiposEstancados" no están vacíos,
+DEBES generar al menos una recomendación con "prioridad": "alta" y "area": "Avance de trabajo"
+citando el número de OT (campo "numeroOT") o el equipo (marca, modelo, N° serie) junto con sus
+días exactos sin avance ("diasSinAvance"). No inventes esta información: usa exactamente los
+valores que vienen en esos campos, ya vienen pre-calculados.
+
 Responde EXCLUSIVAMENTE con un JSON de la forma:
 {"recomendaciones": [{"titulo": string, "detalle": string, "prioridad": "alta"|"media"|"baja", "area": string}]}
 
@@ -41,7 +47,20 @@ Reglas para responder sobre "mis tareas" / "qué me toca" / "qué tengo que hace
 - En "misTareasAsignadas", prioriza mencionar las que no están "completada"; si solo hay
   completadas, acláralo.
 - Si te preguntan por el estado general del taller (no "mis tareas"), ahí sí puedes usar
-  "ordenesActivas", "asignaciones" y "cargaPorColaborador" completos.`;
+  "ordenesActivas", "asignaciones" y "cargaPorColaborador" completos.
+
+Reglas sobre contexto extendido (historial, checklists y horas):
+- Si te preguntan por OTs o equipos atrasados/estancados/sin avance, usa EXCLUSIVAMENTE los
+  campos "otsEstancadas"/"equiposEstancados" del contexto, que ya vienen pre-calculados con los
+  días sin avance ("diasSinAvance") — no inventes esta información a partir de otros campos ni
+  la deduzcas de "ordenesActivas".
+- "checklistsPendientes" son actas de Recepción/Control de Calidad en estado borrador (sin
+  completar); úsalo si preguntan por checklists o actas pendientes.
+- "horasHombrePorColaborador" son las horas trabajadas acumuladas por colaborador; úsalo si
+  preguntan por horas hombre o carga de trabajo en horas.
+- "adjuntosRecientes" es la cantidad de archivos adjuntados en los últimos 7 días.
+- Si alguno de estos campos no viene en el contexto (undefined), trátalo como sin datos
+  disponibles y dilo en vez de inventar.`;
 
 interface OpenAIChatResponse {
   choices?: { message?: { content?: string } }[];
