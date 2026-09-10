@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Plus, Trash2, History } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Trash2, History, QrCode } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import StatusBadge from "@/components/StatusBadge";
 import Modal from "@/components/Modal";
+import EquipoQRCode from "@/components/EquipoQRCode";
 import {
   createEmptyAsignacionRepuesto,
   ESTADO_REPUESTO_LABELS,
@@ -50,6 +51,7 @@ export default function EquipoDetailPage() {
   const [form, setForm] = useState(createEmptyAsignacionRepuesto(equipoId));
   const [historial, setHistorial] = useState<HistorialEstadoRow[]>([]);
   const [historialLoading, setHistorialLoading] = useState(true);
+  const [qrOpen, setQrOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +149,14 @@ export default function EquipoDetailPage() {
                   </option>
                 ))}
             </select>
+            <button
+              onClick={() => setQrOpen(true)}
+              className="btn-secondary flex items-center gap-2"
+              type="button"
+            >
+              <QrCode size={16} />
+              Código QR
+            </button>
           </div>
         </div>
       </div>
@@ -516,6 +526,10 @@ export default function EquipoDetailPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={qrOpen} onClose={() => setQrOpen(false)} title="Código QR del equipo">
+        <EquipoQRCode equipo={equipo} />
       </Modal>
     </>
   );

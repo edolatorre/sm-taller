@@ -174,7 +174,7 @@ interface AppContextType {
   updateCliente: (id: string, data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   deleteCliente: (id: string) => Promise<void>;
   getClienteById: (id: string) => Cliente | undefined;
-  addEquipo: (data: Omit<Equipo, "id">) => Promise<void>;
+  addEquipo: (data: Omit<Equipo, "id">) => Promise<Equipo>;
   updateEquipo: (
     id: string,
     data: Partial<Omit<Equipo, "id">> & { usuarioId?: string }
@@ -701,6 +701,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify(data),
     });
     setEquipos((prev) => [...prev, equipo]);
+    return equipo;
   }, []);
 
   const updateEquipo = useCallback(

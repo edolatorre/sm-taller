@@ -10,11 +10,14 @@ import {
   MessageSquare,
   Plus,
   Trash2,
+  ScanLine,
+  X,
 } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import AdjuntoUploader from "@/components/AdjuntoUploader";
 import AdjuntoGallery from "@/components/AdjuntoGallery";
+import QRScannerModal from "@/components/QRScannerModal";
 import { ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import {
   ESTADO_ASIGNACION_LABELS,
@@ -44,6 +47,9 @@ export default function MisTareasPage() {
   const [parametrosPorTarea, setParametrosPorTarea] = useState<
     Record<string, { clave: string; valor: string }[]>
   >({});
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [equipoFiltroId, setEquipoFiltroId] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   if (!currentUser.colaboradorId) {
     return (
@@ -66,7 +72,7 @@ export default function MisTareasPage() {
     );
   }
 
-  const misTareas = asignaciones
+  const todasMisTareas = asignaciones
     .filter((a) => a.colaboradorId === currentUser.colaboradorId)
     .sort(
       (a, b) =>
@@ -74,9 +80,41 @@ export default function MisTareasPage() {
         new Date(a.fechaAsignacion).getTime()
     );
 
-  const pendientes = misTareas.filter((t) => t.estado === "pendiente").length;
-  const enProceso = misTareas.filter((t) => t.estado === "en_proceso").length;
-  const completadas = misTareas.filter((t) => t.estado === "completada").length;
+  const misTareas = equipoFiltroId
+    ? todasMisTareas.filter((t) => {
+        const orden = getOrdenById(t.ordenId);
+        return orden?.equipoId === equipoFiltroId;
+      })
+    : todasMisTareas;
+
+  const equipoFiltro = equipoFiltroId ? getEquipoById(equipoFiltroId) : undefined;
+
+  const pendientes = todasMisTareas.filter((t) => t.estado === "pendiente").length;
+  const enProceso = todasMisTareas.filter((t) => t.estado === "en_proceso").length;
+  const completadas = todasMisTareas.filter((t) => t.estado === "completada").length;
+
+  function handleScan(texto: string) {
+    setScannerOpen(false);
+    const match = texto.match(/\/equipos\/([a-zA-Z0-9_-]+)/);
+    const equipoId = match ? match[1] : texto.trim();
+    const existe = getEquipoById(equipoId);
+    if (!existe) {
+      setScanError("El código escaneado no corresponde a un equipo válido.");
+      return;
+    }
+    const tieneTareas = todasMisTareas.some((t) => {
+      const orden = getOrdenById(t.ordenId);
+      return orden?.equipoId === equipoId;
+    });
+    if (!tieneTareas) {
+      setScanError(
+        `No tienes tareas asignadas para ${existe.marca} ${existe.modelo} (${existe.nroSerie}).`
+      );
+      return;
+    }
+    setScanError(null);
+    setEquipoFiltroId(equipoId);
+  }
 
   async function iniciarTarea(id: string) {
     await actualizarAsignacion(id, { estado: "en_proceso" });
@@ -163,7 +201,49 @@ export default function MisTareasPage() {
       <PageHeader
         title="Mis Tareas"
         description={`Tareas asignadas a ${currentUser.nombre}`}
+        action={
+          <button
+            onClick={() => {
+              setScanError(null);
+              setScannerOpen(true);
+            }}
+            className="btn-secondary flex items-center gap-2"
+            type="button"
+          >
+            <ScanLine size={16} />
+            Escanear QR
+          </button>
+        }
       />
+
+      {scanError && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center justify-between">
+          <span>{scanError}</span>
+          <button onClick={() => setScanError(null)} type="button" aria-label="Cerrar">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {equipoFiltro && (
+        <div className="mb-4 p-3 rounded-lg bg-brand-blue/10 border border-brand-blue/20 text-sm flex items-center justify-between">
+          <span>
+            Mostrando tareas de{" "}
+            <strong>
+              {equipoFiltro.marca} {equipoFiltro.modelo}
+            </strong>{" "}
+            ({equipoFiltro.nroSerie})
+          </span>
+          <button
+            onClick={() => setEquipoFiltroId(null)}
+            className="text-brand-blue hover:underline flex items-center gap-1"
+            type="button"
+          >
+            <X size={14} />
+            Quitar filtro
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card p-4 text-center">
@@ -430,10 +510,18 @@ export default function MisTareasPage() {
         {misTareas.length === 0 && (
           <div className="card p-12 text-center text-brand-grey">
             <Wrench size={48} className="mx-auto mb-4 opacity-30" />
-            No tienes tareas asignadas
+            {equipoFiltro
+              ? "No tienes tareas asignadas para este equipo"
+              : "No tienes tareas asignadas"}
           </div>
         )}
       </div>
+
+      <QRScannerModal
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScan}
+      />
     </>
   );
 }

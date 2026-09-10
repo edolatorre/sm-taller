@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Eye, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, CheckCircle2, QrCode } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import Modal from "@/components/Modal";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import EquipoQRCode from "@/components/EquipoQRCode";
 import { createEmptyEquipo, type Equipo } from "@/lib/types";
 import { equipoListoParaContinuar } from "@/lib/inventario";
 
@@ -28,6 +29,7 @@ export default function EquiposPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(createEmptyEquipo());
   const [filter, setFilter] = useState<string>("todos");
+  const [qrEquipo, setQrEquipo] = useState<Equipo | null>(null);
 
   // Sin selector multi-empresa todavía: se derivan los estados disponibles para
   // los tabs/select desde la empresa del primer equipo listado (app demo-grade).
@@ -64,14 +66,16 @@ export default function EquiposPage() {
     setModalOpen(true);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (editing) {
-      updateEquipo(editing.id, form);
+      await updateEquipo(editing.id, form);
+      setModalOpen(false);
     } else {
-      addEquipo(form);
+      const nuevo = await addEquipo(form);
+      setModalOpen(false);
+      setQrEquipo(nuevo);
     }
-    setModalOpen(false);
   }
 
   return (
@@ -161,6 +165,13 @@ export default function EquiposPage() {
                       >
                         <Eye size={16} />
                       </Link>
+                      <button
+                        onClick={() => setQrEquipo(equipo)}
+                        className="p-2 text-brand-grey hover:text-brand-blue transition-colors"
+                        aria-label="Ver código QR"
+                      >
+                        <QrCode size={16} />
+                      </button>
                       <button
                         onClick={() => openEdit(equipo)}
                         className="p-2 text-brand-grey hover:text-brand-blue transition-colors"
@@ -340,6 +351,14 @@ export default function EquiposPage() {
         title="Eliminar Equipo"
         message="¿Está seguro que desea eliminar este equipo? Esta acción no se puede deshacer."
       />
+
+      <Modal
+        open={qrEquipo !== null}
+        onClose={() => setQrEquipo(null)}
+        title="Código QR del equipo"
+      >
+        {qrEquipo && <EquipoQRCode equipo={qrEquipo} />}
+      </Modal>
     </>
   );
 }
