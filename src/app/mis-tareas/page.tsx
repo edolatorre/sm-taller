@@ -8,13 +8,18 @@ import {
   PlayCircle,
   Wrench,
   MessageSquare,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
+import AdjuntoUploader from "@/components/AdjuntoUploader";
+import AdjuntoGallery from "@/components/AdjuntoGallery";
 import { ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import {
   ESTADO_ASIGNACION_LABELS,
   ESTADO_ASIGNACION_COLORS,
+  type Adjunto,
 } from "@/lib/types";
 
 export default function MisTareasPage() {
@@ -25,10 +30,20 @@ export default function MisTareasPage() {
     getEquipoById,
     actualizarAsignacion,
     canAccessModulo,
+    getAdjuntosByAsignacion,
   } = useApp();
 
   const [comentarioId, setComentarioId] = useState<string | null>(null);
   const [comentario, setComentario] = useState("");
+  const [horasPorTarea, setHorasPorTarea] = useState<Record<string, string>>(
+    {}
+  );
+  const [adjuntosPorTarea, setAdjuntosPorTarea] = useState<
+    Record<string, Adjunto[]>
+  >({});
+  const [parametrosPorTarea, setParametrosPorTarea] = useState<
+    Record<string, { clave: string; valor: string }[]>
+  >({});
 
   if (!currentUser.colaboradorId) {
     return (
@@ -63,22 +78,84 @@ export default function MisTareasPage() {
   const enProceso = misTareas.filter((t) => t.estado === "en_proceso").length;
   const completadas = misTareas.filter((t) => t.estado === "completada").length;
 
-  function iniciarTarea(id: string) {
-    actualizarAsignacion(id, { estado: "en_proceso" });
+  async function iniciarTarea(id: string) {
+    await actualizarAsignacion(id, { estado: "en_proceso" });
   }
 
-  function completarTarea(id: string) {
-    actualizarAsignacion(id, { estado: "completada" });
+  async function completarTarea(id: string) {
+    const horas = horasPorTarea[id];
+    const horasTrabajadas =
+      horas && horas.trim() !== "" ? Number(horas) : undefined;
+    await actualizarAsignacion(id, {
+      estado: "completada",
+      ...(horasTrabajadas !== undefined ? { horasTrabajadas } : {}),
+    });
+    setHorasPorTarea((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
-  function enviarObservacion(id: string) {
-    if (!comentario.trim()) return;
-    actualizarAsignacion(id, {
+  async function abrirObservacion(id: string) {
+    setComentarioId(id);
+    setComentario("");
+    if (!adjuntosPorTarea[id]) {
+      try {
+        const adjuntos = await getAdjuntosByAsignacion(id);
+        setAdjuntosPorTarea((prev) => ({ ...prev, [id]: adjuntos }));
+      } catch {
+        // ignore: la galería simplemente queda vacía si falla la carga
+      }
+    }
+    if (!parametrosPorTarea[id]) {
+      setParametrosPorTarea((prev) => ({ ...prev, [id]: [] }));
+    }
+  }
+
+  function agregarParametroRow(id: string) {
+    setParametrosPorTarea((prev) => ({
+      ...prev,
+      [id]: [...(prev[id] ?? []), { clave: "", valor: "" }],
+    }));
+  }
+
+  function actualizarParametroRow(
+    id: string,
+    index: number,
+    field: "clave" | "valor",
+    value: string
+  ) {
+    setParametrosPorTarea((prev) => ({
+      ...prev,
+      [id]: (prev[id] ?? []).map((row, i) =>
+        i === index ? { ...row, [field]: value } : row
+      ),
+    }));
+  }
+
+  function quitarParametroRow(id: string, index: number) {
+    setParametrosPorTarea((prev) => ({
+      ...prev,
+      [id]: (prev[id] ?? []).filter((_, i) => i !== index),
+    }));
+  }
+
+  async function enviarObservacion(id: string) {
+    const rows = (parametrosPorTarea[id] ?? []).filter((r) => r.clave.trim());
+    const parametrosTecnicos =
+      rows.length > 0
+        ? Object.fromEntries(rows.map((r) => [r.clave.trim(), r.valor]))
+        : undefined;
+    if (!comentario.trim() && !parametrosTecnicos) return;
+    await actualizarAsignacion(id, {
       estado: "con_observaciones",
-      comentarioMecanico: comentario.trim(),
+      ...(comentario.trim() ? { comentarioMecanico: comentario.trim() } : {}),
+      ...(parametrosTecnicos ? { parametrosTecnicos } : {}),
     });
     setComentarioId(null);
     setComentario("");
+    setParametrosPorTarea((prev) => ({ ...prev, [id]: [] }));
   }
 
   return (
@@ -176,7 +253,7 @@ export default function MisTareasPage() {
               )}
 
               {comentarioId === tarea.id ? (
-                <div className="space-y-2 mb-3">
+                <div className="space-y-3 mb-3">
                   <textarea
                     className="input-field text-sm min-h-[70px]"
                     value={comentario}
@@ -184,6 +261,89 @@ export default function MisTareasPage() {
                     placeholder="Describe qué falta o el problema encontrado..."
                     autoFocus
                   />
+
+                  <div>
+                    <p className="text-xs font-medium text-brand-grey mb-1">
+                      Fotos adjuntas
+                    </p>
+                    <AdjuntoGallery
+                      adjuntos={adjuntosPorTarea[tarea.id] ?? []}
+                      onDeleted={(adjId) =>
+                        setAdjuntosPorTarea((prev) => ({
+                          ...prev,
+                          [tarea.id]: (prev[tarea.id] ?? []).filter(
+                            (a) => a.id !== adjId
+                          ),
+                        }))
+                      }
+                    />
+                    <div className="mt-2">
+                      <AdjuntoUploader
+                        asignacionTareaId={tarea.id}
+                        onUploaded={(nuevos) =>
+                          setAdjuntosPorTarea((prev) => ({
+                            ...prev,
+                            [tarea.id]: [...(prev[tarea.id] ?? []), ...nuevos],
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium text-brand-grey mb-1">
+                      Parámetros técnicos
+                    </p>
+                    <div className="space-y-2">
+                      {(parametrosPorTarea[tarea.id] ?? []).map((row, i) => (
+                        <div key={i} className="flex gap-2">
+                          <input
+                            className="input-field text-sm"
+                            placeholder="Ej: Presión de freno"
+                            value={row.clave}
+                            onChange={(e) =>
+                              actualizarParametroRow(
+                                tarea.id,
+                                i,
+                                "clave",
+                                e.target.value
+                              )
+                            }
+                          />
+                          <input
+                            className="input-field text-sm"
+                            placeholder="Ej: 120 PSI"
+                            value={row.valor}
+                            onChange={(e) =>
+                              actualizarParametroRow(
+                                tarea.id,
+                                i,
+                                "valor",
+                                e.target.value
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => quitarParametroRow(tarea.id, i)}
+                            className="text-red-600 hover:text-red-700"
+                            aria-label="Quitar parámetro"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => agregarParametroRow(tarea.id)}
+                        className="btn-secondary text-xs flex items-center gap-1.5"
+                      >
+                        <Plus size={12} />
+                        Agregar parámetro
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => enviarObservacion(tarea.id)}
@@ -216,6 +376,20 @@ export default function MisTareasPage() {
                   {(tarea.estado === "pendiente" ||
                     tarea.estado === "en_proceso") && (
                     <>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        className="input-field text-sm w-28"
+                        placeholder="Horas trab."
+                        value={horasPorTarea[tarea.id] ?? ""}
+                        onChange={(e) =>
+                          setHorasPorTarea((prev) => ({
+                            ...prev,
+                            [tarea.id]: e.target.value,
+                          }))
+                        }
+                      />
                       <button
                         onClick={() => completarTarea(tarea.id)}
                         className="btn-primary text-sm flex items-center gap-1.5"
@@ -224,10 +398,7 @@ export default function MisTareasPage() {
                         Marcar OK — Completada
                       </button>
                       <button
-                        onClick={() => {
-                          setComentarioId(tarea.id);
-                          setComentario("");
-                        }}
+                        onClick={() => abrirObservacion(tarea.id)}
                         className="btn-secondary text-sm flex items-center gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
                       >
                         <MessageSquare size={14} />

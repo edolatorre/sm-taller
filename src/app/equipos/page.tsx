@@ -8,12 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import Modal from "@/components/Modal";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import {
-  createEmptyEquipo,
-  ESTADO_LABELS,
-  type Equipo,
-  type EstadoEquipo,
-} from "@/lib/types";
+import { createEmptyEquipo, type Equipo } from "@/lib/types";
 import { equipoListoParaContinuar } from "@/lib/inventario";
 
 export default function EquiposPage() {
@@ -25,12 +20,21 @@ export default function EquiposPage() {
     updateEquipo,
     deleteEquipo,
     getAsignacionesRepuestoByEquipo,
+    estadosEquipo,
+    getEstadoInfo,
   } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Equipo | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(createEmptyEquipo());
   const [filter, setFilter] = useState<string>("todos");
+
+  // Sin selector multi-empresa todavía: se derivan los estados disponibles para
+  // los tabs/select desde la empresa del primer equipo listado (app demo-grade).
+  const empresaIdRef = equipos[0]?.empresaId ?? form.empresaId;
+  const estadosDeLaEmpresa = estadosEquipo
+    .filter((e) => e.activo && e.empresaId === empresaIdRef)
+    .sort((a, b) => a.orden - b.orden);
 
   const filtered =
     filter === "todos"
@@ -52,6 +56,7 @@ export default function EquiposPage() {
       nroSerie: equipo.nroSerie,
       nroMotor: equipo.nroMotor,
       propietarioId: equipo.propietarioId,
+      empresaId: equipo.empresaId,
       estado: equipo.estado,
       fechaIngreso: equipo.fechaIngreso,
       descripcionTrabajo: equipo.descripcionTrabajo,
@@ -85,10 +90,7 @@ export default function EquiposPage() {
       <div className="flex gap-2 mb-6 flex-wrap">
         {[
           { key: "todos", label: "Todos" },
-          ...Object.entries(ESTADO_LABELS).map(([key, label]) => ({
-            key,
-            label,
-          })),
+          ...estadosDeLaEmpresa.map((e) => ({ key: e.clave, label: e.label })),
         ].map(({ key, label }) => (
           <button
             key={key}
@@ -138,7 +140,10 @@ export default function EquiposPage() {
                   <td className="p-4">{cliente?.razonSocial ?? "—"}</td>
                   <td className="p-4">
                     <div className="flex flex-col items-start gap-1.5">
-                      <StatusBadge estado={equipo.estado} />
+                      <StatusBadge
+                        label={getEstadoInfo(equipo).label}
+                        color={getEstadoInfo(equipo).color}
+                      />
                       {listoParaContinuar && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-700 border border-green-500/30">
                           <CheckCircle2 size={12} />
@@ -284,15 +289,22 @@ export default function EquiposPage() {
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    estado: e.target.value as EstadoEquipo,
+                    estado: e.target.value,
                   })
                 }
               >
-                {Object.entries(ESTADO_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
+                {estadosEquipo
+                  .filter(
+                    (e) =>
+                      e.activo &&
+                      e.empresaId === (form.empresaId || empresaIdRef)
+                  )
+                  .sort((a, b) => a.orden - b.orden)
+                  .map((e) => (
+                    <option key={e.id} value={e.clave}>
+                      {e.label}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>

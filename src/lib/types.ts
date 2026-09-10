@@ -1,12 +1,6 @@
 import type { RespuestaRecepcion } from "./recepcion-data";
 import type { ModuloId } from "./permissions";
 
-export type EstadoEquipo =
-  | "en_taller"
-  | "reparacion"
-  | "espera_repuestos"
-  | "finalizado";
-
 export interface Cliente {
   id: string;
   razonSocial: string;
@@ -33,7 +27,8 @@ export interface Equipo {
   nroSerie: string;
   nroMotor: string;
   propietarioId: string;
-  estado: EstadoEquipo;
+  empresaId: string;
+  estado: string;
   fechaIngreso: string;
   descripcionTrabajo: string;
 }
@@ -62,20 +57,6 @@ export interface Usuario {
   activo: boolean;
   ultimoAcceso: string;
 }
-
-export const ESTADO_LABELS: Record<EstadoEquipo, string> = {
-  en_taller: "En Taller",
-  reparacion: "Reparación en Proceso",
-  espera_repuestos: "Espera de Repuestos",
-  finalizado: "Finalizado",
-};
-
-export const ESTADO_COLORS: Record<EstadoEquipo, string> = {
-  en_taller: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  reparacion: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  espera_repuestos: "bg-red-500/20 text-red-400 border-red-500/30",
-  finalizado: "bg-green-500/20 text-green-400 border-green-500/30",
-};
 
 export const ROL_LABELS: Record<RolUsuario, string> = {
   admin: "Administrador",
@@ -110,6 +91,7 @@ export function createEmptyEquipo(): Omit<Equipo, "id"> {
     nroSerie: "",
     nroMotor: "",
     propietarioId: "",
+    empresaId: "",
     estado: "en_taller",
     fechaIngreso: new Date().toISOString().split("T")[0],
     descripcionTrabajo: "",
@@ -159,6 +141,8 @@ export interface ActaCalidad {
   responsableEvaluacion: string;
   supervisorCargo: string;
   estado: "borrador" | "completada";
+  templateId?: string | null;
+  tipoEquipoComponenteId?: string | null;
   createdAt: string;
 }
 
@@ -188,6 +172,8 @@ export interface ActaRecepcion {
   responsableEvaluacion: string;
   supervisorCargo: string;
   estado: "borrador" | "completada";
+  templateId?: string | null;
+  tipoEquipoComponenteId?: string | null;
   createdAt: string;
 }
 
@@ -278,6 +264,20 @@ export interface AsignacionTarea {
   comentarioMecanico: string;
   fechaAsignacion: string;
   fechaActualizacion: string;
+  horasTrabajadas?: number | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parametrosTecnicos?: any;
+}
+
+export interface Adjunto {
+  id: string;
+  asignacionTareaId: string;
+  urlRelativa: string;
+  nombreOriginal: string;
+  mimeType: string;
+  tamanioBytes: number;
+  subidoPorId: string | null;
+  createdAt: string;
 }
 
 export interface EmailNotificacion {

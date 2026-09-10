@@ -1,5 +1,5 @@
 import type { Cliente, Colaborador, Equipo, Usuario, ActaCalidad, ActaRecepcion, OrdenTrabajo, AsignacionTarea, Repuesto, AsignacionRepuesto } from "./types";
-import { createEmptyRespuestas } from "./checklist-data";
+import { createEmptyRespuestas, CHECKLIST_SECTIONS } from "./checklist-data";
 import { createEmptyRespuestasRecepcion } from "./recepcion-data";
 
 export const clientesIniciales: Cliente[] = [
@@ -65,6 +65,7 @@ export const equiposIniciales: Equipo[] = [
     nroSerie: "CAT0320DKFME01234",
     nroMotor: "C6.6-789012",
     propietarioId: "c1",
+    empresaId: "",
     estado: "reparacion",
     fechaIngreso: "2026-02-15",
     descripcionTrabajo: "Reparación de sistema hidráulico principal",
@@ -77,6 +78,7 @@ export const equiposIniciales: Equipo[] = [
     nroSerie: "KMTPC200AB1234567",
     nroMotor: "SAA6D107E-456789",
     propietarioId: "c2",
+    empresaId: "",
     estado: "espera_repuestos",
     fechaIngreso: "2026-02-20",
     descripcionTrabajo: "Cambio de tren de rodaje - esperando repuestos importados",
@@ -89,6 +91,7 @@ export const equiposIniciales: Equipo[] = [
     nroSerie: "VCE0210BCD9876543",
     nroMotor: "D6E-321098",
     propietarioId: "c1",
+    empresaId: "",
     estado: "en_taller",
     fechaIngreso: "2026-03-01",
     descripcionTrabajo: "Mantención preventiva 2000 hrs",
@@ -101,6 +104,7 @@ export const equiposIniciales: Equipo[] = [
     nroSerie: "HCMZX200EF5678901",
     nroMotor: "ISUZU-654321",
     propietarioId: "c3",
+    empresaId: "",
     estado: "reparacion",
     fechaIngreso: "2026-02-28",
     descripcionTrabajo: "Reparación de motor - rectificación de cilindros",
@@ -113,6 +117,7 @@ export const equiposIniciales: Equipo[] = [
     nroSerie: "CATD6TXYZ1122334",
     nroMotor: "C9.3-998877",
     propietarioId: "c2",
+    empresaId: "",
     estado: "espera_repuestos",
     fechaIngreso: "2026-03-05",
     descripcionTrabajo: "Cambio de transmisión - repuesto en tránsito desde USA",
@@ -125,6 +130,7 @@ export const equiposIniciales: Equipo[] = [
     nroSerie: "JCB220LCX4455667",
     nroMotor: "JCB444-778899",
     propietarioId: "c3",
+    empresaId: "",
     estado: "en_taller",
     fechaIngreso: "2026-03-08",
     descripcionTrabajo: "Revisión general pre-temporada",
@@ -231,14 +237,25 @@ export const usuariosIniciales: Usuario[] = [
   },
 ];
 
-const respuestasDemo = createEmptyRespuestas();
-respuestasDemo["md_01"] = { estado: "R", observaciones: "" };
-respuestasDemo["md_02"] = { estado: "R", observaciones: "" };
-respuestasDemo["md_03"] = { estado: "P", observaciones: "Requiere cambio de correa" };
-respuestasDemo["tr_01"] = { estado: "R", observaciones: "" };
-respuestasDemo["tr_02"] = { estado: "R", observaciones: "" };
-respuestasDemo["fr_01"] = { estado: "R", observaciones: "" };
-respuestasDemo["el_04"] = { estado: "P", observaciones: "Batería con baja carga" };
+// Los ids de las respuestas se prefijan con "calidad-"/"recepcion-" para
+// coincidir con los ids que `prisma/seed.ts` asigna a los items de las
+// plantillas de checklist por defecto (ver seedTemplateEquipoCompleto),
+// ya que ambos contextos generan su propia plantilla a partir de la
+// misma definición base (CHECKLIST_SECTIONS).
+function prefixRespuestas<T>(respuestas: Record<string, T>, prefix: string): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const [id, r] of Object.entries(respuestas)) out[`${prefix}-${id}`] = r;
+  return out;
+}
+
+const respuestasDemo = prefixRespuestas(createEmptyRespuestas(CHECKLIST_SECTIONS), "calidad");
+respuestasDemo["calidad-md_01"] = { estado: "R", observaciones: "" };
+respuestasDemo["calidad-md_02"] = { estado: "R", observaciones: "" };
+respuestasDemo["calidad-md_03"] = { estado: "P", observaciones: "Requiere cambio de correa" };
+respuestasDemo["calidad-tr_01"] = { estado: "R", observaciones: "" };
+respuestasDemo["calidad-tr_02"] = { estado: "R", observaciones: "" };
+respuestasDemo["calidad-fr_01"] = { estado: "R", observaciones: "" };
+respuestasDemo["calidad-el_04"] = { estado: "P", observaciones: "Batería con baja carga" };
 
 export const actasIniciales: ActaCalidad[] = [
   {
@@ -263,7 +280,7 @@ export const actasIniciales: ActaCalidad[] = [
     tipoTrabajo: "Mantención preventiva 2000 hrs",
     horasMotor: "2.015",
     horasTransmision: "2.010",
-    respuestas: createEmptyRespuestas(),
+    respuestas: prefixRespuestas(createEmptyRespuestas(CHECKLIST_SECTIONS), "calidad"),
     responsableEvaluacion: "Andrea Vega",
     supervisorCargo: "Roberto Fuentes",
     estado: "completada",
@@ -271,13 +288,16 @@ export const actasIniciales: ActaCalidad[] = [
   },
 ];
 
-const respuestasRecepcionDemo = createEmptyRespuestasRecepcion();
-respuestasRecepcionDemo["md_01"] = { estado: "B", observaciones: "" };
-respuestasRecepcionDemo["md_02"] = { estado: "B", observaciones: "" };
-respuestasRecepcionDemo["md_03"] = { estado: "R", observaciones: "Desgaste leve" };
-respuestasRecepcionDemo["es_12"] = { estado: "M", observaciones: "Neumático P1 desgastado" };
-respuestasRecepcionDemo["fr_01"] = { estado: "B", observaciones: "" };
-respuestasRecepcionDemo["sg_10"] = { estado: "NA", observaciones: "No aplica en este modelo" };
+const respuestasRecepcionDemo = prefixRespuestas(
+  createEmptyRespuestasRecepcion(CHECKLIST_SECTIONS),
+  "recepcion"
+);
+respuestasRecepcionDemo["recepcion-md_01"] = { estado: "B", observaciones: "" };
+respuestasRecepcionDemo["recepcion-md_02"] = { estado: "B", observaciones: "" };
+respuestasRecepcionDemo["recepcion-md_03"] = { estado: "R", observaciones: "Desgaste leve" };
+respuestasRecepcionDemo["recepcion-es_12"] = { estado: "M", observaciones: "Neumático P1 desgastado" };
+respuestasRecepcionDemo["recepcion-fr_01"] = { estado: "B", observaciones: "" };
+respuestasRecepcionDemo["recepcion-sg_10"] = { estado: "NA", observaciones: "No aplica en este modelo" };
 
 export const actasRecepcionIniciales: ActaRecepcion[] = [
   {
@@ -302,7 +322,7 @@ export const actasRecepcionIniciales: ActaRecepcion[] = [
     tipoTrabajo: "Revisión general pre-temporada",
     horasMotor: "1.200",
     horasTransmision: "1.195",
-    respuestas: createEmptyRespuestasRecepcion(),
+    respuestas: prefixRespuestas(createEmptyRespuestasRecepcion(CHECKLIST_SECTIONS), "recepcion"),
     responsableEvaluacion: "Andrea Vega",
     supervisorCargo: "Roberto Fuentes",
     estado: "borrador",

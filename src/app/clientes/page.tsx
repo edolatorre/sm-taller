@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
@@ -94,7 +95,12 @@ export default function ClientesPage() {
                   <Building2 size={20} className="text-brand-blue" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">{cliente.razonSocial}</h3>
+                  <Link
+                    href={`/clientes/${cliente.id}`}
+                    className="font-semibold hover:text-brand-blue hover:underline"
+                  >
+                    {cliente.razonSocial}
+                  </Link>
                   <p className="text-xs text-brand-grey">{cliente.rut}</p>
                 </div>
               </div>
@@ -135,6 +141,12 @@ export default function ClientesPage() {
                 <span>{cliente.telefono}</span>
               </div>
             </div>
+            <Link
+              href={`/clientes/${cliente.id}`}
+              className="block mt-4 text-xs text-brand-blue hover:underline text-right"
+            >
+              Ver historial de equipos →
+            </Link>
           </div>
         ))}
         {filtered.length === 0 && (

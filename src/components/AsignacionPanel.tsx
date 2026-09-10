@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { UserPlus, CheckCircle2, AlertCircle, Clock, Paperclip } from "lucide-react";
 import { useApp } from "@/lib/context";
+import AdjuntoGallery from "@/components/AdjuntoGallery";
 import { ETAPAS_OT, ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import {
   ESTADO_ASIGNACION_LABELS,
   ESTADO_ASIGNACION_COLORS,
   type EtapaOT,
+  type Adjunto,
 } from "@/lib/types";
 
 interface AsignacionPanelProps {
@@ -25,15 +27,40 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
     asignarTarea,
     canCurrentUserAssign,
     currentUser,
+    getAdjuntosByAsignacion,
   } = useApp();
 
   const [etapa, setEtapa] = useState<EtapaOT>("reparacion");
   const [colaboradorId, setColaboradorId] = useState("");
   const [instrucciones, setInstrucciones] = useState("");
   const [error, setError] = useState("");
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [adjuntosPorAsignacion, setAdjuntosPorAsignacion] = useState<
+    Record<string, Adjunto[]>
+  >({});
+
+  async function toggleExpandido(id: string) {
+    if (expandidoId === id) {
+      setExpandidoId(null);
+      return;
+    }
+    setExpandidoId(id);
+    if (!adjuntosPorAsignacion[id]) {
+      try {
+        const adjuntos = await getAdjuntosByAsignacion(id);
+        setAdjuntosPorAsignacion((prev) => ({ ...prev, [id]: adjuntos }));
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   const asignacionesOrden = getAsignacionesByOrden(ordenId);
   const puedeAsignar = canCurrentUserAssign();
+  const totalHoras = asignacionesOrden.reduce(
+    (sum, a) => sum + (a.horasTrabajadas ? Number(a.horasTrabajadas) : 0),
+    0
+  );
 
   const mecanicosConUsuario = colaboradores.filter(
     (c) =>
@@ -41,10 +68,10 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
       usuarios.some((u) => u.colaboradorId === c.id && u.activo)
   );
 
-  function handleAsignar(e: React.FormEvent) {
+  async function handleAsignar(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const result = asignarTarea(ordenId, etapa, colaboradorId, instrucciones);
+    const result = await asignarTarea(ordenId, etapa, colaboradorId, instrucciones);
     if (!result.ok) {
       setError(result.error ?? "Error al asignar");
       return;
@@ -126,9 +153,16 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
       )}
 
       <div className="space-y-3">
-        <p className="text-sm font-medium">
-          Tareas asignadas ({asignacionesOrden.length})
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">
+            Personal asignado ({asignacionesOrden.length})
+          </p>
+          {totalHoras > 0 && (
+            <p className="text-xs font-medium text-brand-blue bg-brand-blue/10 rounded-full px-3 py-1">
+              Total Horas Hombre: {totalHoras}
+            </p>
+          )}
+        </div>
         {asignacionesOrden.length === 0 ? (
           <p className="text-sm text-brand-grey">Sin asignaciones aún.</p>
         ) : (
@@ -162,7 +196,14 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
                     {asg.fechaAsignacion}
                   </span>
                 </div>
-                <p className="text-sm font-medium">{col?.nombre ?? "—"}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{col?.nombre ?? "—"}</p>
+                  {asg.horasTrabajadas != null && (
+                    <span className="text-xs font-medium text-brand-grey">
+                      {Number(asg.horasTrabajadas)} h
+                    </span>
+                  )}
+                </div>
                 {asg.instrucciones && (
                   <p className="text-xs text-brand-grey mt-1">
                     {asg.instrucciones}
@@ -176,6 +217,46 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
                 <p className="text-[10px] text-brand-grey mt-2">
                   Asignado por {asignador?.nombre ?? "—"}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => toggleExpandido(asg.id)}
+                  className="text-xs text-brand-blue hover:underline mt-2 flex items-center gap-1"
+                >
+                  <Paperclip size={12} />
+                  {adjuntosPorAsignacion[asg.id]?.length
+                    ? `${adjuntosPorAsignacion[asg.id].length} foto(s)`
+                    : "Adjuntos / parámetros"}
+                </button>
+                {expandidoId === asg.id && (
+                  <div className="mt-3 pt-3 border-t border-brand-border/60 space-y-2">
+                    {asg.parametrosTecnicos &&
+                      Object.keys(asg.parametrosTecnicos).length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-brand-grey mb-1">
+                            Parámetros técnicos
+                          </p>
+                          <ul className="text-xs text-brand-dark space-y-0.5">
+                            {Object.entries(
+                              asg.parametrosTecnicos as Record<string, unknown>
+                            ).map(([k, v]) => (
+                              <li key={k}>
+                                <strong>{k}:</strong> {String(v)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    <div>
+                      <p className="text-xs font-medium text-brand-grey mb-1">
+                        Fotos
+                      </p>
+                      <AdjuntoGallery
+                        adjuntos={adjuntosPorAsignacion[asg.id] ?? []}
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })

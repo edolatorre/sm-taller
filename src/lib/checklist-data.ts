@@ -159,15 +159,14 @@ export const TIPOS_ACTA = [
 
 export type TipoActa = (typeof TIPOS_ACTA)[number];
 
-export function createEmptyRespuestas(): Record<
-  string,
-  { estado: "R" | "P" | null; observaciones: string }
-> {
+export function createEmptyRespuestas(
+  secciones: { items: { id: string; label: string }[] }[] = CHECKLIST_SECTIONS
+): Record<string, { estado: "R" | "P" | null; observaciones: string }> {
   const respuestas: Record<
     string,
     { estado: "R" | "P" | null; observaciones: string }
   > = {};
-  for (const section of CHECKLIST_SECTIONS) {
+  for (const section of secciones) {
     for (const item of section.items) {
       respuestas[item.id] = { estado: null, observaciones: "" };
     }

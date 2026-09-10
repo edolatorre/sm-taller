@@ -1,0 +1,362 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Entidades base (paridad 1:1 con el estado en memoria anterior)
+// ---------------------------------------------------------------------------
+
+model Cliente {
+  id              String   @id @default(cuid())
+  razonSocial     String
+  rut             String
+  giro            String
+  direccion       String
+  comuna          String
+  ciudad          String
+  telefono        String
+  email           String
+  contactoNombre  String
+  contactoCargo   String
+  contactoTelefono String
+  contactoEmail   String
+  notas           String   @default("")
+  createdAt       DateTime @default(now())
+
+  equipos Equipo[]
+}
+
+model Empresa {
+  id     String @id @default(cuid())
+  nombre String @unique
+
+  equipos          Equipo[]
+  estadoDefiniciones EstadoDefinicion[]
+}
+
+model Equipo {
+  id                 String   @id @default(cuid())
+  marca              String
+  modelo             String
+  anio               Int
+  nroSerie           String
+  nroMotor           String
+  propietarioId      String
+  propietario        Cliente  @relation(fields: [propietarioId], references: [id])
+  empresaId          String
+  empresa            Empresa  @relation(fields: [empresaId], references: [id])
+  estado             String
+  fechaIngreso       String
+  descripcionTrabajo String
+
+  ordenes             OrdenTrabajo[]
+  actas               ActaCalidad[]
+  actasRecepcion      ActaRecepcion[]
+  asignacionesRepuesto AsignacionRepuesto[]
+}
+
+model EstadoDefinicion {
+  id        String  @id @default(cuid())
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  entidad   String // "equipo" (extensible a futuro)
+  clave     String
+  label     String
+  color     String
+  orden     Int
+  esFinal   Boolean @default(false)
+  activo    Boolean @default(true)
+
+  @@unique([empresaId, entidad, clave])
+}
+
+model HistorialEstado {
+  id             String   @id @default(cuid())
+  entidadTipo    String // "equipo" | "asignacion_repuesto" | "orden_trabajo"
+  entidadId      String
+  estadoAnterior String?
+  estadoNuevo    String
+  usuarioId      String?
+  fecha          DateTime @default(now())
+  nota           String   @default("")
+
+  @@index([entidadTipo, entidadId])
+}
+
+model Colaborador {
+  id           String   @id @default(cuid())
+  nombre       String
+  rut          String
+  cargo        String
+  especialidad String
+  telefono     String
+  email        String
+  activo       Boolean  @default(true)
+  fechaIngreso String
+
+  usuarios    Usuario[]
+  asignaciones AsignacionTarea[]
+}
+
+enum RolUsuario {
+  admin
+  supervisor
+  tecnico
+  recepcion
+}
+
+model Usuario {
+  id            String     @id @default(cuid())
+  nombre        String
+  email         String
+  rol           RolUsuario
+  colaboradorId String?
+  colaborador   Colaborador? @relation(fields: [colaboradorId], references: [id])
+  permisos      String[]
+  activo        Boolean    @default(true)
+  ultimoAcceso  String     @default("—")
+
+  asignacionesComoAsignador AsignacionTarea[]     @relation("AsignadoPor")
+  kpiPreferencias           UsuarioKpiPreferencia[]
+}
+
+model ActaCalidad {
+  id                    String   @id @default(cuid())
+  tipoActa              String
+  fecha                 String
+  equipoId              String
+  equipo                Equipo   @relation(fields: [equipoId], references: [id])
+  tipoTrabajo            String
+  horasMotor            String
+  horasTransmision       String
+  respuestas             Json
+  responsableEvaluacion  String
+  supervisorCargo        String
+  estado                 String  @default("borrador")
+  templateId              String?
+  template                ChecklistTemplate? @relation(fields: [templateId], references: [id])
+  tipoEquipoComponenteId  String?
+  tipoEquipoComponente    TipoEquipoComponente? @relation(fields: [tipoEquipoComponenteId], references: [id])
+  createdAt               DateTime @default(now())
+}
+
+model ActaRecepcion {
+  id                    String   @id @default(cuid())
+  tipoActa              String
+  fecha                 String
+  equipoId              String
+  equipo                Equipo   @relation(fields: [equipoId], references: [id])
+  tipoTrabajo            String
+  horasMotor            String
+  horasTransmision       String
+  respuestas             Json
+  responsableEvaluacion  String
+  supervisorCargo        String
+  estado                 String  @default("borrador")
+  templateId              String?
+  template                ChecklistTemplate? @relation(fields: [templateId], references: [id])
+  tipoEquipoComponenteId  String?
+  tipoEquipoComponente    TipoEquipoComponente? @relation(fields: [tipoEquipoComponenteId], references: [id])
+  createdAt               DateTime @default(now())
+}
+
+model OrdenTrabajo {
+  id                 String   @id @default(cuid())
+  numeroOT           String
+  descripcion        String
+  equipoId           String
+  equipo             Equipo   @relation(fields: [equipoId], references: [id])
+  personalCargo      String
+  ubicacion          String
+  etapa              String
+  estado             String
+  horometroDiesel    String
+  kilometraje        String
+  descripcionTrabajo String
+  fechaInicio        String
+  horaInicio         String
+  fechaTermino       String
+  horaTermino        String
+  repuestos          Json
+  observaciones      String
+  createdAt          DateTime @default(now())
+
+  asignaciones         AsignacionTarea[]
+  asignacionesRepuesto AsignacionRepuesto[]
+}
+
+enum EstadoAsignacion {
+  pendiente
+  en_proceso
+  completada
+  con_observaciones
+}
+
+model AsignacionTarea {
+  id                  String           @id @default(cuid())
+  ordenId             String
+  orden               OrdenTrabajo     @relation(fields: [ordenId], references: [id])
+  etapa               String
+  colaboradorId       String
+  colaborador         Colaborador      @relation(fields: [colaboradorId], references: [id])
+  asignadoPorId       String
+  asignadoPor         Usuario          @relation("AsignadoPor", fields: [asignadoPorId], references: [id])
+  estado              EstadoAsignacion @default(pendiente)
+  instrucciones       String
+  comentarioMecanico  String           @default("")
+  horasTrabajadas     Decimal?
+  parametrosTecnicos  Json?
+  fechaAsignacion     String
+  fechaActualizacion  String
+
+  adjuntos Adjunto[]
+}
+
+model Adjunto {
+  id                String          @id @default(cuid())
+  asignacionTareaId String
+  asignacionTarea   AsignacionTarea @relation(fields: [asignacionTareaId], references: [id])
+  urlRelativa       String
+  nombreOriginal    String
+  mimeType          String
+  tamanioBytes      Int
+  subidoPorId       String?
+  createdAt         DateTime        @default(now())
+}
+
+enum CategoriaRepuesto {
+  motor
+  hidraulico
+  tren_rodaje
+  transmision
+  electrico
+  filtros
+  otros
+}
+
+model Repuesto {
+  id            String            @id @default(cuid())
+  nroParte      String
+  descripcion   String
+  marca         String
+  categoria     CategoriaRepuesto
+  stock         Int
+  stockMinimo   Int
+  ubicacion     String
+  costoUnitario Int
+  proveedor     String
+  createdAt     DateTime          @default(now())
+
+  asignaciones AsignacionRepuesto[]
+}
+
+enum EstadoRepuestoAsignado {
+  solicitado
+  en_transito
+  recibido
+  instalado
+}
+
+model AsignacionRepuesto {
+  id            String                  @id @default(cuid())
+  repuestoId    String
+  repuesto      Repuesto                @relation(fields: [repuestoId], references: [id])
+  equipoId      String
+  equipo        Equipo                  @relation(fields: [equipoId], references: [id])
+  ordenId       String?
+  orden         OrdenTrabajo?           @relation(fields: [ordenId], references: [id])
+  cantidad      Int
+  estado        EstadoRepuestoAsignado  @default(solicitado)
+  fechaSolicitud String
+  fechaRecepcion String
+  proveedor     String
+  notas         String
+}
+
+model EmailNotificacion {
+  id     String   @id @default(cuid())
+  para   String
+  asunto String
+  cuerpo String
+  fecha  DateTime @default(now())
+  leido  Boolean  @default(false)
+}
+
+// ---------------------------------------------------------------------------
+// Plantillas de checklist configurables (Recepción/Entrega y Control de Calidad)
+// ---------------------------------------------------------------------------
+
+model TipoEquipoComponente {
+  id    String @id @default(cuid())
+  clave String @unique
+  label String
+
+  templates       ChecklistTemplate[]
+  actasCalidad    ActaCalidad[]
+  actasRecepcion  ActaRecepcion[]
+}
+
+model ChecklistTemplate {
+  id                     String   @id @default(cuid())
+  contexto               String // "recepcion" | "calidad"
+  tipoEquipoComponenteId String
+  tipoEquipoComponente   TipoEquipoComponente @relation(fields: [tipoEquipoComponenteId], references: [id])
+  nombre                 String
+  activo                 Boolean  @default(true)
+
+  secciones      ChecklistTemplateSeccion[]
+  actasCalidad   ActaCalidad[]
+  actasRecepcion ActaRecepcion[]
+
+  @@unique([contexto, tipoEquipoComponenteId, nombre])
+}
+
+model ChecklistTemplateSeccion {
+  id         String            @id @default(cuid())
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id])
+  titulo     String
+  orden      Int
+
+  items ChecklistTemplateItem[]
+}
+
+model ChecklistTemplateItem {
+  id        String                   @id @default(cuid())
+  seccionId String
+  seccion   ChecklistTemplateSeccion @relation(fields: [seccionId], references: [id])
+  label     String
+  orden     Int
+}
+
+// ---------------------------------------------------------------------------
+// KPIs de dashboard configurables por usuario
+// ---------------------------------------------------------------------------
+
+model KpiDefinicion {
+  id          String @id @default(cuid())
+  clave       String @unique
+  label       String
+  descripcion String
+  icono       String
+  colorClass  String
+
+  preferencias UsuarioKpiPreferencia[]
+}
+
+model UsuarioKpiPreferencia {
+  id        String        @id @default(cuid())
+  usuarioId String
+  usuario   Usuario       @relation(fields: [usuarioId], references: [id])
+  kpiId     String
+  kpi       KpiDefinicion @relation(fields: [kpiId], references: [id])
+  orden     Int
+  visible   Boolean       @default(true)
+
+  @@unique([usuarioId, kpiId])
+}

@@ -49,9 +49,9 @@ export default function OrdenesTrabajoPage() {
     return o.estado === filterEstado;
   });
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    const id = addOrden({ ...form, repuestos: [] });
+    const id = await addOrden({ ...form, repuestos: [] });
     setModalOpen(false);
     router.push(`/ordenes-trabajo/${id}`);
   }

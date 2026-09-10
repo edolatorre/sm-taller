@@ -13,19 +13,59 @@ import { createEmptyActa } from "@/lib/types";
 
 export default function ControlCalidadPage() {
   const router = useRouter();
-  const { actas, equipos, deleteActa, addActa, getEquipoById } = useApp();
+  const {
+    actas,
+    equipos,
+    deleteActa,
+    addActa,
+    getEquipoById,
+    tiposEquipoComponente,
+    checklistTemplates,
+  } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [tipoEquipoComponenteId, setTipoEquipoComponenteId] = useState("");
   const [form, setForm] = useState({
     ...createEmptyActa(),
     equipoId: "",
   });
 
-  function handleCreate(e: React.FormEvent) {
+  function resolveTemplate(tipoId: string) {
+    const plantillasCalidad = checklistTemplates.filter(
+      (t) => t.contexto === "calidad" && t.activo
+    );
+    const porTipo = plantillasCalidad.find(
+      (t) => t.tipoEquipoComponenteId === tipoId
+    );
+    if (porTipo) return porTipo;
+    const tipoEquipoCompleto = tiposEquipoComponente.find(
+      (t) => t.clave === "equipo_completo"
+    );
+    return plantillasCalidad.find(
+      (t) => t.tipoEquipoComponenteId === tipoEquipoCompleto?.id
+    );
+  }
+
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    const id = addActa({
+    const template = resolveTemplate(tipoEquipoComponenteId);
+    if (!template) {
+      alert(
+        "No hay una plantilla de checklist configurada para este tipo de equipo/componente."
+      );
+      return;
+    }
+    const id = await addActa({
       ...form,
-      respuestas: createEmptyRespuestas(),
+      templateId: template.id,
+      tipoEquipoComponenteId: tipoEquipoComponenteId || template.tipoEquipoComponenteId,
+      respuestas: createEmptyRespuestas(
+        template.secciones.map((s) => ({
+          id: s.id,
+          title: s.titulo,
+          items: s.items.map((it) => ({ id: it.id, label: it.label })),
+        }))
+      ),
     });
     setModalOpen(false);
     router.push(`/control-calidad/${id}`);
@@ -40,6 +80,7 @@ export default function ControlCalidadPage() {
           <button
             onClick={() => {
               setForm({ ...createEmptyActa(), equipoId: "" });
+              setTipoEquipoComponenteId("");
               setModalOpen(true);
             }}
             className="btn-primary flex items-center gap-2"
@@ -204,6 +245,21 @@ export default function ControlCalidadPage() {
               placeholder="Ej: Reparación sistema hidráulico"
               required
             />
+          </div>
+          <div>
+            <label className="label-field">Tipo de Equipo/Componente</label>
+            <select
+              className="input-field"
+              value={tipoEquipoComponenteId}
+              onChange={(e) => setTipoEquipoComponenteId(e.target.value)}
+            >
+              <option value="">Equipo completo (checklist estándar)</option>
+              {tiposEquipoComponente.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button
