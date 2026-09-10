@@ -63,17 +63,17 @@ export default function MisTareasPage() {
   const enProceso = misTareas.filter((t) => t.estado === "en_proceso").length;
   const completadas = misTareas.filter((t) => t.estado === "completada").length;
 
-  function iniciarTarea(id: string) {
-    actualizarAsignacion(id, { estado: "en_proceso" });
+  async function iniciarTarea(id: string) {
+    await actualizarAsignacion(id, { estado: "en_proceso" });
   }
 
-  function completarTarea(id: string) {
-    actualizarAsignacion(id, { estado: "completada" });
+  async function completarTarea(id: string) {
+    await actualizarAsignacion(id, { estado: "completada" });
   }
 
-  function enviarObservacion(id: string) {
+  async function enviarObservacion(id: string) {
     if (!comentario.trim()) return;
-    actualizarAsignacion(id, {
+    await actualizarAsignacion(id, {
       estado: "con_observaciones",
       comentarioMecanico: comentario.trim(),
     });

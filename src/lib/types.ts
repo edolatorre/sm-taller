@@ -33,6 +33,7 @@ export interface Equipo {
   nroSerie: string;
   nroMotor: string;
   propietarioId: string;
+  empresaId: string;
   estado: EstadoEquipo;
   fechaIngreso: string;
   descripcionTrabajo: string;
@@ -110,6 +111,7 @@ export function createEmptyEquipo(): Omit<Equipo, "id"> {
     nroSerie: "",
     nroMotor: "",
     propietarioId: "",
+    empresaId: "",
     estado: "en_taller",
     fechaIngreso: new Date().toISOString().split("T")[0],
     descripcionTrabajo: "",

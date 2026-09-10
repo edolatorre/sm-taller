@@ -52,6 +52,7 @@ export default function EquiposPage() {
       nroSerie: equipo.nroSerie,
       nroMotor: equipo.nroMotor,
       propietarioId: equipo.propietarioId,
+      empresaId: equipo.empresaId,
       estado: equipo.estado,
       fechaIngreso: equipo.fechaIngreso,
       descripcionTrabajo: equipo.descripcionTrabajo,

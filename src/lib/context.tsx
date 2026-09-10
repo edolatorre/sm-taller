@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
 import type {
@@ -32,35 +33,94 @@ import {
   puedeAccederRuta,
   puedeAsignarOT,
 } from "./permissions";
-import {
-  clientesIniciales,
-  colaboradoresIniciales,
-  equiposIniciales,
-  usuariosIniciales,
-  actasIniciales,
-  actasRecepcionIniciales,
-  ordenesIniciales,
-  asignacionesIniciales,
-  repuestosIniciales,
-  asignacionesRepuestoIniciales,
-} from "./mock-data";
-import { createEmptyRespuestas } from "./checklist-data";
-import { createEmptyRespuestasRecepcion } from "./recepcion-data";
+import { usuariosIniciales } from "./mock-data";
 import {
   enviarEmailAsignacion,
   enviarEmailCompletada,
   enviarEmailObservacion,
 } from "./email";
 
-function generateId(prefix: string) {
-  return `${prefix}${Date.now()}`;
+export interface Empresa {
+  id: string;
+  nombre: string;
+}
+
+export interface EstadoDefinicion {
+  id: string;
+  empresaId: string;
+  entidad: string;
+  clave: string;
+  label: string;
+  color: string;
+  orden: number;
+  esFinal: boolean;
+  activo: boolean;
+}
+
+export interface TipoEquipoComponente {
+  id: string;
+  clave: string;
+  label: string;
+}
+
+export interface ChecklistTemplateItem {
+  id: string;
+  seccionId: string;
+  label: string;
+  orden: number;
+}
+
+export interface ChecklistTemplateSeccion {
+  id: string;
+  templateId: string;
+  titulo: string;
+  orden: number;
+  items: ChecklistTemplateItem[];
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  contexto: string;
+  tipoEquipoComponenteId: string;
+  nombre: string;
+  activo: boolean;
+  secciones: ChecklistTemplateSeccion[];
+}
+
+export interface KpiDefinicion {
+  id: string;
+  clave: string;
+  label: string;
+  descripcion: string;
+  icono: string;
+  colorClass: string;
 }
 
 function canAssign(user: Usuario) {
   return puedeAsignarOT(user);
 }
 
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
+  if (!res.ok) {
+    let message = `Error en ${url}`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
 interface AppContextType {
+  loading: boolean;
+  error: string | null;
   currentUser: Usuario;
   setCurrentUserId: (id: string) => void;
   permisosPorRol: Record<RolUsuario, ModuloId[]>;
@@ -74,39 +134,48 @@ interface AppContextType {
   usuarios: Usuario[];
   asignaciones: AsignacionTarea[];
   emails: EmailNotificacion[];
-  addCliente: (data: Omit<Cliente, "id" | "createdAt">) => void;
-  updateCliente: (id: string, data: Omit<Cliente, "id" | "createdAt">) => void;
-  deleteCliente: (id: string) => void;
+  empresas: Empresa[];
+  estadosEquipo: EstadoDefinicion[];
+  tiposEquipoComponente: TipoEquipoComponente[];
+  checklistTemplates: ChecklistTemplate[];
+  kpis: KpiDefinicion[];
+  getEmpresaById: (id: string) => Empresa | undefined;
+  getTipoEquipoComponenteById: (id: string) => TipoEquipoComponente | undefined;
+  getChecklistTemplateById: (id: string) => ChecklistTemplate | undefined;
+  getKpiById: (id: string) => KpiDefinicion | undefined;
+  addCliente: (data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
+  updateCliente: (id: string, data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
+  deleteCliente: (id: string) => Promise<void>;
   getClienteById: (id: string) => Cliente | undefined;
-  addEquipo: (data: Omit<Equipo, "id">) => void;
-  updateEquipo: (id: string, data: Partial<Omit<Equipo, "id">>) => void;
-  deleteEquipo: (id: string) => void;
-  addColaborador: (data: Omit<Colaborador, "id">) => void;
-  updateColaborador: (id: string, data: Omit<Colaborador, "id">) => void;
-  deleteColaborador: (id: string) => void;
-  addUsuario: (data: Omit<Usuario, "id" | "ultimoAcceso">) => void;
+  addEquipo: (data: Omit<Equipo, "id">) => Promise<void>;
+  updateEquipo: (id: string, data: Partial<Omit<Equipo, "id">>) => Promise<void>;
+  deleteEquipo: (id: string) => Promise<void>;
+  addColaborador: (data: Omit<Colaborador, "id">) => Promise<void>;
+  updateColaborador: (id: string, data: Omit<Colaborador, "id">) => Promise<void>;
+  deleteColaborador: (id: string) => Promise<void>;
+  addUsuario: (data: Omit<Usuario, "id" | "ultimoAcceso">) => Promise<void>;
   updateUsuario: (
     id: string,
     data: Omit<Usuario, "id" | "ultimoAcceso">
-  ) => void;
-  deleteUsuario: (id: string) => void;
+  ) => Promise<void>;
+  deleteUsuario: (id: string) => Promise<void>;
   actas: ActaCalidad[];
-  addActa: (data: Omit<ActaCalidad, "id" | "createdAt">) => string;
-  updateActa: (id: string, data: Partial<Omit<ActaCalidad, "id" | "createdAt">>) => void;
-  deleteActa: (id: string) => void;
+  addActa: (data: Omit<ActaCalidad, "id" | "createdAt">) => Promise<string>;
+  updateActa: (id: string, data: Partial<Omit<ActaCalidad, "id" | "createdAt">>) => Promise<void>;
+  deleteActa: (id: string) => Promise<void>;
   getActaById: (id: string) => ActaCalidad | undefined;
   actasRecepcion: ActaRecepcion[];
-  addActaRecepcion: (data: Omit<ActaRecepcion, "id" | "createdAt">) => string;
+  addActaRecepcion: (data: Omit<ActaRecepcion, "id" | "createdAt">) => Promise<string>;
   updateActaRecepcion: (
     id: string,
     data: Partial<Omit<ActaRecepcion, "id" | "createdAt">>
-  ) => void;
-  deleteActaRecepcion: (id: string) => void;
+  ) => Promise<void>;
+  deleteActaRecepcion: (id: string) => Promise<void>;
   getActaRecepcionById: (id: string) => ActaRecepcion | undefined;
   ordenes: OrdenTrabajo[];
-  addOrden: (data: Omit<OrdenTrabajo, "id" | "createdAt">) => string;
-  updateOrden: (id: string, data: Partial<Omit<OrdenTrabajo, "id" | "createdAt">>) => void;
-  deleteOrden: (id: string) => void;
+  addOrden: (data: Omit<OrdenTrabajo, "id" | "createdAt">) => Promise<string>;
+  updateOrden: (id: string, data: Partial<Omit<OrdenTrabajo, "id" | "createdAt">>) => Promise<void>;
+  deleteOrden: (id: string) => Promise<void>;
   getOrdenById: (id: string) => OrdenTrabajo | undefined;
   getEquipoById: (id: string) => Equipo | undefined;
   getColaboradorById: (id: string) => Colaborador | undefined;
@@ -118,26 +187,26 @@ interface AppContextType {
     etapa: EtapaOT,
     colaboradorId: string,
     instrucciones: string
-  ) => { ok: boolean; error?: string; email?: EmailNotificacion };
+  ) => Promise<{ ok: boolean; error?: string }>;
   actualizarAsignacion: (
     id: string,
     data: {
       estado?: EstadoAsignacion;
       comentarioMecanico?: string;
     }
-  ) => { email?: EmailNotificacion };
+  ) => Promise<{ ok: boolean; error?: string }>;
   canCurrentUserAssign: () => boolean;
   lastEmail: EmailNotificacion | null;
   clearLastEmail: () => void;
   repuestos: Repuesto[];
-  addRepuesto: (data: Omit<Repuesto, "id" | "createdAt">) => void;
-  updateRepuesto: (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => void;
-  deleteRepuesto: (id: string) => void;
+  addRepuesto: (data: Omit<Repuesto, "id" | "createdAt">) => Promise<void>;
+  updateRepuesto: (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => Promise<void>;
+  deleteRepuesto: (id: string) => Promise<void>;
   getRepuestoById: (id: string) => Repuesto | undefined;
   asignacionesRepuesto: AsignacionRepuesto[];
   asignarRepuesto: (
     data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">
-  ) => void;
+  ) => Promise<void>;
   actualizarAsignacionRepuesto: (
     id: string,
     data: {
@@ -145,8 +214,8 @@ interface AppContextType {
       cantidad?: number;
       notas?: string;
     }
-  ) => void;
-  deleteAsignacionRepuesto: (id: string) => void;
+  ) => Promise<void>;
+  deleteAsignacionRepuesto: (id: string) => Promise<void>;
   getAsignacionesRepuestoByEquipo: (equipoId: string) => AsignacionRepuesto[];
   getAsignacionesRepuestoByOrden: (ordenId: string) => AsignacionRepuesto[];
 }
@@ -154,31 +223,90 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState("u2");
-  const [clientes, setClientes] = useState<Cliente[]>(clientesIniciales);
-  const [equipos, setEquipos] = useState<Equipo[]>(equiposIniciales);
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>(
-    colaboradoresIniciales
-  );
-  const [usuarios, setUsuarios] = useState<Usuario[]>(usuariosIniciales);
-  const [actas, setActas] = useState<ActaCalidad[]>(actasIniciales);
-  const [actasRecepcion, setActasRecepcion] = useState<ActaRecepcion[]>(
-    actasRecepcionIniciales
-  );
-  const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>(ordenesIniciales);
-  const [asignaciones, setAsignaciones] =
-    useState<AsignacionTarea[]>(asignacionesIniciales);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [equipos, setEquipos] = useState<Equipo[]>([]);
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [actas, setActas] = useState<ActaCalidad[]>([]);
+  const [actasRecepcion, setActasRecepcion] = useState<ActaRecepcion[]>([]);
+  const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
+  const [asignaciones, setAsignaciones] = useState<AsignacionTarea[]>([]);
   const [emails, setEmails] = useState<EmailNotificacion[]>([]);
   const [lastEmail, setLastEmail] = useState<EmailNotificacion | null>(null);
-  const [repuestos, setRepuestos] = useState<Repuesto[]>(repuestosIniciales);
+  const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
   const [asignacionesRepuesto, setAsignacionesRepuesto] = useState<
     AsignacionRepuesto[]
-  >(asignacionesRepuestoIniciales);
+  >([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [estadosEquipo, setEstadosEquipo] = useState<EstadoDefinicion[]>([]);
+  const [tiposEquipoComponente, setTiposEquipoComponente] = useState<
+    TipoEquipoComponente[]
+  >([]);
+  const [checklistTemplates, setChecklistTemplates] = useState<
+    ChecklistTemplate[]
+  >([]);
+  const [kpis, setKpis] = useState<KpiDefinicion[]>([]);
   const [permisosPorRol, setPermisosPorRol] =
     useState<Record<RolUsuario, ModuloId[]>>(PERMISOS_POR_ROL);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function bootstrap() {
+      try {
+        const data = await fetchJson<{
+          clientes: Cliente[];
+          equipos: Equipo[];
+          colaboradores: Colaborador[];
+          usuarios: Usuario[];
+          actas: ActaCalidad[];
+          actasRecepcion: ActaRecepcion[];
+          ordenes: OrdenTrabajo[];
+          asignaciones: AsignacionTarea[];
+          repuestos: Repuesto[];
+          asignacionesRepuesto: AsignacionRepuesto[];
+          empresas: Empresa[];
+          estadosEquipo: EstadoDefinicion[];
+          tiposEquipoComponente: TipoEquipoComponente[];
+          checklistTemplates: ChecklistTemplate[];
+          kpis: KpiDefinicion[];
+        }>("/api/bootstrap");
+        if (cancelled) return;
+        setClientes(data.clientes);
+        setEquipos(data.equipos);
+        setColaboradores(data.colaboradores);
+        setUsuarios(data.usuarios);
+        setActas(data.actas);
+        setActasRecepcion(data.actasRecepcion);
+        setOrdenes(data.ordenes);
+        setAsignaciones(data.asignaciones);
+        setRepuestos(data.repuestos);
+        setAsignacionesRepuesto(data.asignacionesRepuesto);
+        setEmpresas(data.empresas);
+        setEstadosEquipo(data.estadosEquipo);
+        setTiposEquipoComponente(data.tiposEquipoComponente);
+        setChecklistTemplates(data.checklistTemplates);
+        setKpis(data.kpis);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Error al cargar datos");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currentUser =
-    usuarios.find((u) => u.id === currentUserId) ?? usuariosIniciales[1];
+    usuarios.find((u) => u.id === currentUserId) ??
+    usuarios[0] ??
+    usuariosIniciales[1];
 
   const getCurrentUserPermisos = useCallback(
     () => getPermisosUsuario(currentUser, permisosPorRol),
@@ -255,6 +383,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       asignacionesRepuesto.filter((a) => a.ordenId === ordenId),
     [asignacionesRepuesto]
   );
+  const getEmpresaById = useCallback(
+    (id: string) => empresas.find((e) => e.id === id),
+    [empresas]
+  );
+  const getTipoEquipoComponenteById = useCallback(
+    (id: string) => tiposEquipoComponente.find((t) => t.id === id),
+    [tiposEquipoComponente]
+  );
+  const getChecklistTemplateById = useCallback(
+    (id: string) => checklistTemplates.find((t) => t.id === id),
+    [checklistTemplates]
+  );
+  const getKpiById = useCallback(
+    (id: string) => kpis.find((k) => k.id === id),
+    [kpis]
+  );
 
   const pushEmail = useCallback((email: EmailNotificacion) => {
     setEmails((prev) => [email, ...prev]);
@@ -269,7 +413,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const asignarTarea = useCallback(
-    (
+    async (
       ordenId: string,
       etapa: EtapaOT,
       colaboradorId: string,
@@ -281,66 +425,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const orden = ordenes.find((o) => o.id === ordenId);
       const colaborador = colaboradores.find((c) => c.id === colaboradorId);
-      if (!orden || !colaborador) {
-        return { ok: false, error: "OT o colaborador no encontrado." };
-      }
 
-      const usuarioCol = usuarios.find(
-        (u) => u.colaboradorId === colaboradorId && u.activo
-      );
-      if (!usuarioCol) {
+      let nueva: AsignacionTarea;
+      try {
+        nueva = await fetchJson<AsignacionTarea>("/api/asignaciones", {
+          method: "POST",
+          body: JSON.stringify({
+            ordenId,
+            etapa,
+            colaboradorId,
+            asignadoPorId: currentUser.id,
+            instrucciones,
+          }),
+        });
+      } catch (e) {
         return {
           ok: false,
-          error: `${colaborador.nombre} no tiene usuario activo en el sistema.`,
+          error: e instanceof Error ? e.message : "Error al asignar",
         };
       }
-
-      const duplicada = asignaciones.find(
-        (a) =>
-          a.ordenId === ordenId &&
-          a.etapa === etapa &&
-          a.colaboradorId === colaboradorId &&
-          a.estado !== "completada"
-      );
-      if (duplicada) {
-        return {
-          ok: false,
-          error: "Ya existe una asignación activa para esta etapa y mecánico.",
-        };
-      }
-
-      const hoy = new Date().toISOString().split("T")[0];
-      const nueva: AsignacionTarea = {
-        id: generateId("asg"),
-        ordenId,
-        etapa,
-        colaboradorId,
-        asignadoPorId: currentUser.id,
-        estado: "pendiente",
-        instrucciones,
-        comentarioMecanico: "",
-        fechaAsignacion: hoy,
-        fechaActualizacion: hoy,
-      };
 
       setAsignaciones((prev) => [...prev, nueva]);
 
-      const email = enviarEmailAsignacion({
-        colaborador,
-        orden,
-        etapa,
-        asignadoPor: currentUser,
-        instrucciones,
-      });
-      pushEmail(email);
+      if (orden && colaborador) {
+        const email = enviarEmailAsignacion({
+          colaborador,
+          orden,
+          etapa,
+          asignadoPor: currentUser,
+          instrucciones,
+        });
+        pushEmail(email);
+      }
 
-      return { ok: true, email };
+      return { ok: true };
     },
-    [currentUser, ordenes, colaboradores, usuarios, asignaciones, pushEmail]
+    [currentUser, ordenes, colaboradores, pushEmail]
   );
 
   const actualizarAsignacion = useCallback(
-    (
+    async (
       id: string,
       data: {
         estado?: EstadoAsignacion;
@@ -348,139 +472,157 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     ) => {
       const asignacion = asignaciones.find((a) => a.id === id);
-      if (!asignacion) return {};
+      if (!asignacion) return { ok: false, error: "Asignación no encontrada." };
 
       const orden = ordenes.find((o) => o.id === asignacion.ordenId);
       const colaborador = colaboradores.find(
         (c) => c.id === asignacion.colaboradorId
       );
       const supervisor = usuarios.find((u) => u.id === asignacion.asignadoPorId);
-      if (!orden || !colaborador) return {};
 
-      const hoy = new Date().toISOString().split("T")[0];
+      let actualizada: AsignacionTarea;
+      try {
+        actualizada = await fetchJson<AsignacionTarea>(
+          `/api/asignaciones/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          }
+        );
+      } catch (e) {
+        return {
+          ok: false,
+          error: e instanceof Error ? e.message : "Error al actualizar",
+        };
+      }
+
       setAsignaciones((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                ...data,
-                fechaActualizacion: hoy,
-              }
-            : a
-        )
+        prev.map((a) => (a.id === id ? actualizada : a))
       );
 
-      let email: EmailNotificacion | undefined;
-      if (supervisor && data.estado === "completada") {
-        email = enviarEmailCompletada({
-          supervisor,
-          colaborador,
-          orden,
-          etapa: asignacion.etapa,
-        });
-        pushEmail(email);
+      if (orden && colaborador && supervisor && data.estado === "completada") {
+        pushEmail(
+          enviarEmailCompletada({
+            supervisor,
+            colaborador,
+            orden,
+            etapa: asignacion.etapa,
+          })
+        );
       } else if (
+        orden &&
+        colaborador &&
         supervisor &&
         data.estado === "con_observaciones" &&
         data.comentarioMecanico
       ) {
-        email = enviarEmailObservacion({
-          supervisor,
-          colaborador,
-          orden,
-          etapa: asignacion.etapa,
-          comentario: data.comentarioMecanico,
-        });
-        pushEmail(email);
+        pushEmail(
+          enviarEmailObservacion({
+            supervisor,
+            colaborador,
+            orden,
+            etapa: asignacion.etapa,
+            comentario: data.comentarioMecanico,
+          })
+        );
       }
 
-      return { email };
+      return { ok: true };
     },
     [asignaciones, ordenes, colaboradores, usuarios, pushEmail]
   );
 
-  const addCliente = useCallback((data: Omit<Cliente, "id" | "createdAt">) => {
-    setClientes((prev) => [
-      ...prev,
-      { ...data, id: generateId("c"), createdAt: new Date().toISOString().split("T")[0] },
-    ]);
+  const addCliente = useCallback(async (data: Omit<Cliente, "id" | "createdAt">) => {
+    const cliente = await fetchJson<Cliente>("/api/clientes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setClientes((prev) => [...prev, cliente]);
   }, []);
 
   const updateCliente = useCallback(
-    (id: string, data: Omit<Cliente, "id" | "createdAt">) => {
-      setClientes((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...data } : c))
-      );
+    async (id: string, data: Omit<Cliente, "id" | "createdAt">) => {
+      const cliente = await fetchJson<Cliente>(`/api/clientes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setClientes((prev) => prev.map((c) => (c.id === id ? cliente : c)));
     },
     []
   );
 
-  const deleteCliente = useCallback((id: string) => {
+  const deleteCliente = useCallback(async (id: string) => {
+    await fetchJson(`/api/clientes/${id}`, { method: "DELETE" });
     setClientes((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
-  const addEquipo = useCallback((data: Omit<Equipo, "id">) => {
-    setEquipos((prev) => [...prev, { ...data, id: generateId("e") }]);
+  const addEquipo = useCallback(async (data: Omit<Equipo, "id">) => {
+    const equipo = await fetchJson<Equipo>("/api/equipos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setEquipos((prev) => [...prev, equipo]);
   }, []);
 
   const updateEquipo = useCallback(
-    (id: string, data: Partial<Omit<Equipo, "id">>) => {
-      setEquipos((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, ...data } : e))
-      );
+    async (id: string, data: Partial<Omit<Equipo, "id">>) => {
+      const equipo = await fetchJson<Equipo>(`/api/equipos/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setEquipos((prev) => prev.map((e) => (e.id === id ? equipo : e)));
     },
     []
   );
 
-  const deleteEquipo = useCallback((id: string) => {
+  const deleteEquipo = useCallback(async (id: string) => {
+    await fetchJson(`/api/equipos/${id}`, { method: "DELETE" });
     setEquipos((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
   const addRepuesto = useCallback(
-    (data: Omit<Repuesto, "id" | "createdAt">) => {
-      setRepuestos((prev) => [
-        ...prev,
-        {
-          ...data,
-          id: generateId("rep"),
-          createdAt: new Date().toISOString().split("T")[0],
-        },
-      ]);
+    async (data: Omit<Repuesto, "id" | "createdAt">) => {
+      const repuesto = await fetchJson<Repuesto>("/api/repuestos", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      setRepuestos((prev) => [...prev, repuesto]);
     },
     []
   );
 
   const updateRepuesto = useCallback(
-    (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => {
-      setRepuestos((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...data } : r))
-      );
+    async (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => {
+      const repuesto = await fetchJson<Repuesto>(`/api/repuestos/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setRepuestos((prev) => prev.map((r) => (r.id === id ? repuesto : r)));
     },
     []
   );
 
-  const deleteRepuesto = useCallback((id: string) => {
+  const deleteRepuesto = useCallback(async (id: string) => {
+    await fetchJson(`/api/repuestos/${id}`, { method: "DELETE" });
     setRepuestos((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
   const asignarRepuesto = useCallback(
-    (data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">) => {
-      const hoy = new Date().toISOString().split("T")[0];
-      setAsignacionesRepuesto((prev) => [
-        ...prev,
+    async (data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">) => {
+      const asignacion = await fetchJson<AsignacionRepuesto>(
+        "/api/asignaciones-repuesto",
         {
-          ...data,
-          id: generateId("asgrep"),
-          fechaSolicitud: hoy,
-          fechaRecepcion: data.estado === "recibido" || data.estado === "instalado" ? hoy : "",
-        },
-      ]);
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      );
+      setAsignacionesRepuesto((prev) => [...prev, asignacion]);
     },
     []
   );
 
   const actualizarAsignacionRepuesto = useCallback(
-    (
+    async (
       id: string,
       data: {
         estado?: EstadoRepuestoAsignado;
@@ -488,184 +630,191 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notas?: string;
       }
     ) => {
-      const hoy = new Date().toISOString().split("T")[0];
+      const actualizado = await fetchJson<AsignacionRepuesto>(
+        `/api/asignaciones-repuesto/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }
+      );
       setAsignacionesRepuesto((prev) =>
-        prev.map((a) => {
-          if (a.id !== id) return a;
-          const actualizado = { ...a, ...data };
-          if (
-            data.estado &&
-            (data.estado === "recibido" || data.estado === "instalado") &&
-            !a.fechaRecepcion
-          ) {
-            actualizado.fechaRecepcion = hoy;
-          }
-          return actualizado;
-        })
+        prev.map((a) => (a.id === id ? actualizado : a))
       );
 
-      // Al instalar (por primera vez) se descuenta del stock del catálogo.
-      const asignacion = asignacionesRepuesto.find((a) => a.id === id);
-      if (
-        asignacion &&
-        data.estado === "instalado" &&
-        asignacion.estado !== "instalado"
-      ) {
-        const cantidad = data.cantidad ?? asignacion.cantidad;
-        setRepuestos((prev) =>
-          prev.map((r) =>
-            r.id === asignacion.repuestoId
-              ? { ...r, stock: Math.max(0, r.stock - cantidad) }
-              : r
-          )
-        );
+      if (data.estado === "instalado") {
+        const anterior = asignacionesRepuesto.find((a) => a.id === id);
+        if (anterior && anterior.estado !== "instalado") {
+          const cantidad = data.cantidad ?? anterior.cantidad;
+          setRepuestos((prev) =>
+            prev.map((r) =>
+              r.id === anterior.repuestoId
+                ? { ...r, stock: Math.max(0, r.stock - cantidad) }
+                : r
+            )
+          );
+        }
       }
     },
     [asignacionesRepuesto]
   );
 
-  const deleteAsignacionRepuesto = useCallback((id: string) => {
+  const deleteAsignacionRepuesto = useCallback(async (id: string) => {
+    await fetchJson(`/api/asignaciones-repuesto/${id}`, { method: "DELETE" });
     setAsignacionesRepuesto((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  const addColaborador = useCallback((data: Omit<Colaborador, "id">) => {
-    setColaboradores((prev) => [
-      ...prev,
-      { ...data, id: generateId("col") },
-    ]);
+  const addColaborador = useCallback(async (data: Omit<Colaborador, "id">) => {
+    const colaborador = await fetchJson<Colaborador>("/api/colaboradores", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setColaboradores((prev) => [...prev, colaborador]);
   }, []);
 
   const updateColaborador = useCallback(
-    (id: string, data: Omit<Colaborador, "id">) => {
+    async (id: string, data: Omit<Colaborador, "id">) => {
+      const colaborador = await fetchJson<Colaborador>(
+        `/api/colaboradores/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }
+      );
       setColaboradores((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...data } : c))
+        prev.map((c) => (c.id === id ? colaborador : c))
       );
     },
     []
   );
 
-  const deleteColaborador = useCallback((id: string) => {
+  const deleteColaborador = useCallback(async (id: string) => {
+    await fetchJson(`/api/colaboradores/${id}`, { method: "DELETE" });
     setColaboradores((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   const addUsuario = useCallback(
-    (data: Omit<Usuario, "id" | "ultimoAcceso">) => {
-      setUsuarios((prev) => [
-        ...prev,
-        {
-          ...data,
-          id: generateId("u"),
-          ultimoAcceso: "—",
-        },
-      ]);
+    async (data: Omit<Usuario, "id" | "ultimoAcceso">) => {
+      const usuario = await fetchJson<Usuario>("/api/usuarios", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      setUsuarios((prev) => [...prev, usuario]);
     },
     []
   );
 
   const updateUsuario = useCallback(
-    (id: string, data: Omit<Usuario, "id" | "ultimoAcceso">) => {
-      setUsuarios((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, ...data } : u))
-      );
+    async (id: string, data: Omit<Usuario, "id" | "ultimoAcceso">) => {
+      const usuario = await fetchJson<Usuario>(`/api/usuarios/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setUsuarios((prev) => prev.map((u) => (u.id === id ? usuario : u)));
     },
     []
   );
 
-  const deleteUsuario = useCallback((id: string) => {
+  const deleteUsuario = useCallback(async (id: string) => {
+    await fetchJson(`/api/usuarios/${id}`, { method: "DELETE" });
     setUsuarios((prev) => prev.filter((u) => u.id !== id));
   }, []);
 
-  const addActa = useCallback((data: Omit<ActaCalidad, "id" | "createdAt">) => {
-    const id = generateId("acta");
-    setActas((prev) => [
-      ...prev,
-      {
-        ...data,
-        id,
-        respuestas: data.respuestas ?? createEmptyRespuestas(),
-        createdAt: new Date().toISOString().split("T")[0],
-      },
-    ]);
-    return id;
+  const addActa = useCallback(async (data: Omit<ActaCalidad, "id" | "createdAt">) => {
+    const acta = await fetchJson<ActaCalidad>("/api/actas", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setActas((prev) => [...prev, acta]);
+    return acta.id;
   }, []);
 
   const updateActa = useCallback(
-    (id: string, data: Partial<Omit<ActaCalidad, "id" | "createdAt">>) => {
-      setActas((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...data } : a))
-      );
+    async (id: string, data: Partial<Omit<ActaCalidad, "id" | "createdAt">>) => {
+      const acta = await fetchJson<ActaCalidad>(`/api/actas/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setActas((prev) => prev.map((a) => (a.id === id ? acta : a)));
     },
     []
   );
 
-  const deleteActa = useCallback((id: string) => {
+  const deleteActa = useCallback(async (id: string) => {
+    await fetchJson(`/api/actas/${id}`, { method: "DELETE" });
     setActas((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
   const addActaRecepcion = useCallback(
-    (data: Omit<ActaRecepcion, "id" | "createdAt">) => {
-      const id = generateId("rec");
-      setActasRecepcion((prev) => [
-        ...prev,
-        {
-          ...data,
-          id,
-          respuestas: data.respuestas ?? createEmptyRespuestasRecepcion(),
-          createdAt: new Date().toISOString().split("T")[0],
-        },
-      ]);
-      return id;
+    async (data: Omit<ActaRecepcion, "id" | "createdAt">) => {
+      const acta = await fetchJson<ActaRecepcion>("/api/actas-recepcion", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      setActasRecepcion((prev) => [...prev, acta]);
+      return acta.id;
     },
     []
   );
 
   const updateActaRecepcion = useCallback(
-    (
+    async (
       id: string,
       data: Partial<Omit<ActaRecepcion, "id" | "createdAt">>
     ) => {
-      setActasRecepcion((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...data } : a))
+      const acta = await fetchJson<ActaRecepcion>(
+        `/api/actas-recepcion/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }
       );
+      setActasRecepcion((prev) => prev.map((a) => (a.id === id ? acta : a)));
     },
     []
   );
 
-  const deleteActaRecepcion = useCallback((id: string) => {
+  const deleteActaRecepcion = useCallback(async (id: string) => {
+    await fetchJson(`/api/actas-recepcion/${id}`, { method: "DELETE" });
     setActasRecepcion((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
   const addOrden = useCallback(
-    (data: Omit<OrdenTrabajo, "id" | "createdAt">) => {
-      const id = generateId("ot");
-      const numeroOT =
-        data.numeroOT ||
-        `OT-2026-${String(ordenes.length + 48).padStart(4, "0")}`;
-      setOrdenes((prev) => [
-        ...prev,
-        { ...data, id, numeroOT, createdAt: new Date().toISOString().split("T")[0] },
-      ]);
-      return id;
-    },
-    [ordenes.length]
-  );
-
-  const updateOrden = useCallback(
-    (id: string, data: Partial<Omit<OrdenTrabajo, "id" | "createdAt">>) => {
-      setOrdenes((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, ...data } : o))
-      );
+    async (data: Omit<OrdenTrabajo, "id" | "createdAt">) => {
+      const orden = await fetchJson<OrdenTrabajo>("/api/ordenes", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      setOrdenes((prev) => [...prev, orden]);
+      return orden.id;
     },
     []
   );
 
-  const deleteOrden = useCallback((id: string) => {
+  const updateOrden = useCallback(
+    async (id: string, data: Partial<Omit<OrdenTrabajo, "id" | "createdAt">>) => {
+      const orden = await fetchJson<OrdenTrabajo>(`/api/ordenes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setOrdenes((prev) => prev.map((o) => (o.id === id ? orden : o)));
+    },
+    []
+  );
+
+  const deleteOrden = useCallback(async (id: string) => {
+    await fetchJson(`/api/ordenes/${id}`, { method: "DELETE" });
     setOrdenes((prev) => prev.filter((o) => o.id !== id));
   }, []);
+
+  if (loading) {
+    return <div className="p-8 text-center text-brand-grey">Cargando...</div>;
+  }
 
   return (
     <AppContext.Provider
       value={{
+        loading,
+        error,
         currentUser,
         setCurrentUserId,
         permisosPorRol,
@@ -679,6 +828,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         usuarios,
         asignaciones,
         emails,
+        empresas,
+        estadosEquipo,
+        tiposEquipoComponente,
+        checklistTemplates,
+        kpis,
+        getEmpresaById,
+        getTipoEquipoComponenteById,
+        getChecklistTemplateById,
+        getKpiById,
         addCliente,
         updateCliente,
         deleteCliente,

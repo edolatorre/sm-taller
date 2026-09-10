@@ -31,9 +31,9 @@ export default function RecepcionEntregaPage() {
     equipoId: "",
   });
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    const id = addActaRecepcion({
+    const id = await addActaRecepcion({
       ...form,
       respuestas: createEmptyRespuestasRecepcion(),
     });

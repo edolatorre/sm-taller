@@ -41,10 +41,10 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
       usuarios.some((u) => u.colaboradorId === c.id && u.activo)
   );
 
-  function handleAsignar(e: React.FormEvent) {
+  async function handleAsignar(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const result = asignarTarea(ordenId, etapa, colaboradorId, instrucciones);
+    const result = await asignarTarea(ordenId, etapa, colaboradorId, instrucciones);
     if (!result.ok) {
       setError(result.error ?? "Error al asignar");
       return;

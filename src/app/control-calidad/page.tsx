@@ -21,9 +21,9 @@ export default function ControlCalidadPage() {
     equipoId: "",
   });
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    const id = addActa({
+    const id = await addActa({
       ...form,
       respuestas: createEmptyRespuestas(),
     });
