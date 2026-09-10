@@ -128,8 +128,23 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface AccionPropuesta {
+  tipo: string;
+  payload: Record<string, unknown>;
+  resumenLegible: string;
+}
+
+export interface ChatResultado {
+  respuesta: string;
+  accionPropuesta?: AccionPropuesta;
+}
+
 export interface AIProvider {
   readonly nombre: string;
   getRecomendaciones(contexto: TallerContext): Promise<Recomendacion[]>;
-  chat(mensajes: ChatMessage[], contexto: TallerContext): Promise<string>;
+  chat(
+    mensajes: ChatMessage[],
+    contexto: TallerContext,
+    opciones?: { accionesHabilitadas?: boolean }
+  ): Promise<ChatResultado>;
 }

@@ -117,3 +117,7 @@ export function puedeAsignarOT(user: Usuario): boolean {
 export function puedeGestionarPermisos(user: Usuario): boolean {
   return user.rol === "admin";
 }
+
+export function puedeUsarAccionesIA(user: Usuario): boolean {
+  return user.rol === "admin" || user.rol === "supervisor";
+}

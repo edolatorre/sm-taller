@@ -5,6 +5,7 @@ import type { ChatMessage, TallerContext } from "@/lib/ai/types";
 interface AsistenteRequestBody {
   mensajes: ChatMessage[];
   contexto: TallerContext;
+  accionesHabilitadas?: boolean;
 }
 
 export async function POST(request: Request) {
@@ -27,8 +28,12 @@ export async function POST(request: Request) {
 
   try {
     const provider = getAIProvider();
-    const respuesta = await provider.chat(body.mensajes, body.contexto);
-    return NextResponse.json({ respuesta });
+    const { respuesta, accionPropuesta } = await provider.chat(
+      body.mensajes,
+      body.contexto,
+      { accionesHabilitadas: body.accionesHabilitadas }
+    );
+    return NextResponse.json({ respuesta, accionPropuesta });
   } catch (error) {
     const message =
       error instanceof Error
