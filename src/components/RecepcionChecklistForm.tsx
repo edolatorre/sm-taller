@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import {
-  CHECKLIST_SECTIONS,
-} from "@/lib/checklist-data";
+import { CHECKLIST_SECTIONS } from "@/lib/checklist-data";
+import type { ChecklistSectionDef } from "@/lib/checklist-data";
 import {
   countRespuestasRecepcion,
   ESTADO_RECEPCION_LABELS,
@@ -16,6 +15,7 @@ interface RecepcionChecklistFormProps {
   respuestas: Record<string, RespuestaRecepcion>;
   onChange: (respuestas: Record<string, RespuestaRecepcion>) => void;
   readOnly?: boolean;
+  secciones?: ChecklistSectionDef[];
 }
 
 const ESTADOS: Exclude<EstadoRecepcionItem, null>[] = ["B", "R", "M", "NA"];
@@ -24,10 +24,11 @@ export default function RecepcionChecklistForm({
   respuestas,
   onChange,
   readOnly = false,
+  secciones = CHECKLIST_SECTIONS,
 }: RecepcionChecklistFormProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    CHECKLIST_SECTIONS.forEach((s, i) => {
+    secciones.forEach((s, i) => {
       initial[s.id] = i === 0;
     });
     return initial;
@@ -79,7 +80,7 @@ export default function RecepcionChecklistForm({
         N/A = No Aplica
       </p>
 
-      {CHECKLIST_SECTIONS.map((section) => {
+      {secciones.map((section) => {
         const sectionStats = countRespuestasRecepcion(
           Object.fromEntries(
             section.items.map((item) => [item.id, respuestas[item.id]])

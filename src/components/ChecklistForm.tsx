@@ -2,26 +2,26 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import {
-  CHECKLIST_SECTIONS,
-  countRespuestas,
-} from "@/lib/checklist-data";
+import { countRespuestas, CHECKLIST_SECTIONS } from "@/lib/checklist-data";
+import type { ChecklistSectionDef } from "@/lib/checklist-data";
 import type { RespuestaChecklist } from "@/lib/types";
 
 interface ChecklistFormProps {
   respuestas: Record<string, RespuestaChecklist>;
   onChange: (respuestas: Record<string, RespuestaChecklist>) => void;
   readOnly?: boolean;
+  secciones?: ChecklistSectionDef[];
 }
 
 export default function ChecklistForm({
   respuestas,
   onChange,
   readOnly = false,
+  secciones = CHECKLIST_SECTIONS,
 }: ChecklistFormProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    CHECKLIST_SECTIONS.forEach((s, i) => {
+    secciones.forEach((s, i) => {
       initial[s.id] = i === 0;
     });
     return initial;
@@ -70,7 +70,7 @@ export default function ChecklistForm({
         pendiente, indicar el motivo en observaciones
       </p>
 
-      {CHECKLIST_SECTIONS.map((section) => {
+      {secciones.map((section) => {
         const sectionStats = countRespuestas(
           Object.fromEntries(
             section.items.map((item) => [item.id, respuestas[item.id]])

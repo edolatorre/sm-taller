@@ -141,6 +141,8 @@ export interface ActaCalidad {
   responsableEvaluacion: string;
   supervisorCargo: string;
   estado: "borrador" | "completada";
+  templateId?: string | null;
+  tipoEquipoComponenteId?: string | null;
   createdAt: string;
 }
 
@@ -170,6 +172,8 @@ export interface ActaRecepcion {
   responsableEvaluacion: string;
   supervisorCargo: string;
   estado: "borrador" | "completada";
+  templateId?: string | null;
+  tipoEquipoComponenteId?: string | null;
   createdAt: string;
 }
 

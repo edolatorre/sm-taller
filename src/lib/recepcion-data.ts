@@ -24,12 +24,11 @@ export const TIPOS_ACTA_RECEPCION = [
 
 export type TipoActaRecepcion = (typeof TIPOS_ACTA_RECEPCION)[number];
 
-export function createEmptyRespuestasRecepcion(): Record<
-  string,
-  RespuestaRecepcion
-> {
+export function createEmptyRespuestasRecepcion(
+  secciones: { items: { id: string; label: string }[] }[] = CHECKLIST_SECTIONS
+): Record<string, RespuestaRecepcion> {
   const respuestas: Record<string, RespuestaRecepcion> = {};
-  for (const section of CHECKLIST_SECTIONS) {
+  for (const section of secciones) {
     for (const item of section.items) {
       respuestas[item.id] = { estado: null, observaciones: "" };
     }

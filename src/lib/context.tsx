@@ -147,6 +147,19 @@ interface AppContextType {
   addEstado: (data: Omit<EstadoDefinicion, "id">) => Promise<void>;
   updateEstado: (id: string, data: Partial<Omit<EstadoDefinicion, "id">>) => Promise<void>;
   deleteEstado: (id: string) => Promise<void>;
+  addTipoEquipoComponente: (data: Omit<TipoEquipoComponente, "id">) => Promise<void>;
+  addChecklistTemplate: (
+    data: Omit<ChecklistTemplate, "id" | "secciones"> & {
+      secciones: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+    }
+  ) => Promise<void>;
+  updateChecklistTemplate: (
+    id: string,
+    data: Partial<Omit<ChecklistTemplate, "id" | "secciones">> & {
+      secciones?: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+    }
+  ) => Promise<void>;
+  deleteChecklistTemplate: (id: string) => Promise<void>;
   addCliente: (data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   updateCliente: (id: string, data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   deleteCliente: (id: string) => Promise<void>;
@@ -451,6 +464,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteEstado = useCallback(async (id: string) => {
     await fetchJson(`/api/estados/${id}`, { method: "DELETE" });
     setEstadosEquipo((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const addTipoEquipoComponente = useCallback(
+    async (data: Omit<TipoEquipoComponente, "id">) => {
+      const tipo = await fetchJson<TipoEquipoComponente>(
+        "/api/tipos-equipo-componente",
+        { method: "POST", body: JSON.stringify(data) }
+      );
+      setTiposEquipoComponente((prev) => [...prev, tipo]);
+    },
+    []
+  );
+
+  const addChecklistTemplate = useCallback(
+    async (
+      data: Omit<ChecklistTemplate, "id" | "secciones"> & {
+        secciones: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+      }
+    ) => {
+      const template = await fetchJson<ChecklistTemplate>(
+        "/api/checklist-templates",
+        { method: "POST", body: JSON.stringify(data) }
+      );
+      setChecklistTemplates((prev) => [...prev, template]);
+    },
+    []
+  );
+
+  const updateChecklistTemplate = useCallback(
+    async (
+      id: string,
+      data: Partial<Omit<ChecklistTemplate, "id" | "secciones">> & {
+        secciones?: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+      }
+    ) => {
+      const template = await fetchJson<ChecklistTemplate>(
+        `/api/checklist-templates/${id}`,
+        { method: "PATCH", body: JSON.stringify(data) }
+      );
+      setChecklistTemplates((prev) =>
+        prev.map((t) => (t.id === id ? template : t))
+      );
+    },
+    []
+  );
+
+  const deleteChecklistTemplate = useCallback(async (id: string) => {
+    await fetchJson(`/api/checklist-templates/${id}`, { method: "DELETE" });
+    setChecklistTemplates((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const pushEmail = useCallback((email: EmailNotificacion) => {
@@ -897,6 +959,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addEstado,
         updateEstado,
         deleteEstado,
+        addTipoEquipoComponente,
+        addChecklistTemplate,
+        updateChecklistTemplate,
+        deleteChecklistTemplate,
         addCliente,
         updateCliente,
         deleteCliente,

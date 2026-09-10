@@ -172,6 +172,108 @@ function EstadosPorEmpresa() {
   );
 }
 
+function ChecklistTemplatesPanel() {
+  const { checklistTemplates, tiposEquipoComponente, updateChecklistTemplate } =
+    useApp();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const grouped = ["calidad", "recepcion"] as const;
+
+  return (
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+        <ListChecks size={20} className="text-brand-blue" />
+        Plantillas de Checklist
+      </h2>
+      <p className="text-sm text-brand-grey mb-6">
+        Plantillas configurables usadas al crear actas de Control de Calidad
+        y de Recepción/Entrega, según el tipo de equipo/componente.
+      </p>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {grouped.map((contexto) => {
+          const plantillas = checklistTemplates.filter(
+            (t) => t.contexto === contexto
+          );
+          return (
+            <div key={contexto} className="border border-brand-border rounded-lg p-4">
+              <h3 className="font-semibold mb-3 capitalize">
+                {contexto === "calidad" ? "Control de Calidad" : "Recepción / Entrega"}
+              </h3>
+              {plantillas.length === 0 && (
+                <p className="text-sm text-brand-grey">Sin plantillas.</p>
+              )}
+              <div className="space-y-2">
+                {plantillas.map((t) => {
+                  const tipo = tiposEquipoComponente.find(
+                    (te) => te.id === t.tipoEquipoComponenteId
+                  );
+                  const totalItems = t.secciones.reduce(
+                    (acc, s) => acc + s.items.length,
+                    0
+                  );
+                  const isOpen = expanded[t.id];
+                  return (
+                    <div
+                      key={t.id}
+                      className="border border-brand-border/60 rounded-lg"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpanded((prev) => ({ ...prev, [t.id]: !prev[t.id] }))
+                        }
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{t.nombre}</p>
+                          <p className="text-xs text-brand-grey">
+                            {tipo?.label ?? "—"} — {t.secciones.length} secciones,{" "}
+                            {totalItems} items
+                          </p>
+                        </div>
+                        <label
+                          className="flex items-center gap-1.5 text-xs text-brand-grey"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Activo
+                          <input
+                            type="checkbox"
+                            checked={t.activo}
+                            onChange={(e) =>
+                              updateChecklistTemplate(t.id, { activo: e.target.checked })
+                            }
+                          />
+                        </label>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-brand-border/50 p-3 text-sm space-y-2">
+                          {t.secciones.map((s) => (
+                            <div key={s.id}>
+                              <p className="font-medium text-xs text-brand-blue uppercase tracking-wide mb-1">
+                                {s.titulo}
+                              </p>
+                              <ul className="text-xs text-brand-grey space-y-0.5 pl-3 list-disc">
+                                {s.items.map((it) => (
+                                  <li key={it.id}>{it.label}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ConfiguracionPage() {
   const {
     permisosPorRol,
@@ -330,6 +432,10 @@ export default function ConfiguracionPage() {
 
       <div className="mt-6">
         <EstadosPorEmpresa />
+      </div>
+
+      <div className="mt-6">
+        <ChecklistTemplatesPanel />
       </div>
     </>
   );

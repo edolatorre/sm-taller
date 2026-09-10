@@ -4,18 +4,29 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, CheckCircle } from "lucide-react";
 import { useApp } from "@/lib/context";
+import type { ChecklistTemplate } from "@/lib/context";
 import ChecklistForm from "@/components/ChecklistForm";
+import { CHECKLIST_SECTIONS } from "@/lib/checklist-data";
 import type { ActaCalidad, Equipo, RespuestaChecklist } from "@/lib/types";
 
 function ActaEditor({
   acta,
   equipo,
+  template,
 }: {
   acta: ActaCalidad;
   equipo: Equipo | undefined;
+  template: ChecklistTemplate | undefined;
 }) {
   const router = useRouter();
   const { updateActa } = useApp();
+  const secciones = template
+    ? template.secciones.map((s) => ({
+        id: s.id,
+        title: s.titulo,
+        items: s.items.map((it) => ({ id: it.id, label: it.label })),
+      }))
+    : CHECKLIST_SECTIONS;
 
   function updateField(field: string, value: string) {
     updateActa(acta.id, { [field]: value });
@@ -160,6 +171,7 @@ function ActaEditor({
       <ChecklistForm
         respuestas={acta.respuestas}
         onChange={updateRespuestas}
+        secciones={secciones}
       />
 
       <div className="card p-6 mt-6">
@@ -201,7 +213,8 @@ function ActaEditor({
 
 export default function ActaDetailPage() {
   const params = useParams();
-  const { getActaById, getEquipoById } = useApp();
+  const { getActaById, getEquipoById, checklistTemplates, tiposEquipoComponente } =
+    useApp();
 
   const acta = getActaById(params.id as string);
 
@@ -216,5 +229,21 @@ export default function ActaDetailPage() {
     );
   }
 
-  return <ActaEditor acta={acta} equipo={getEquipoById(acta.equipoId)} />;
+  let template = acta.templateId
+    ? checklistTemplates.find((t) => t.id === acta.templateId)
+    : undefined;
+  if (!template) {
+    const tipoEquipoCompleto = tiposEquipoComponente.find(
+      (t) => t.clave === "equipo_completo"
+    );
+    template = checklistTemplates.find(
+      (t) =>
+        t.contexto === "calidad" &&
+        t.tipoEquipoComponenteId === tipoEquipoCompleto?.id
+    );
+  }
+
+  return (
+    <ActaEditor acta={acta} equipo={getEquipoById(acta.equipoId)} template={template} />
+  );
 }

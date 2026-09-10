@@ -130,45 +130,65 @@ async function main() {
     await prisma.tipoEquipoComponente.upsert({ where: { clave: t.clave }, update: {}, create: t });
   }
 
-  let templateRecepcion = await prisma.checklistTemplate.findFirst({
-    where: { contexto: "recepcion", tipoEquipoComponenteId: tipoEquipoCompleto.id },
-  });
-  if (!templateRecepcion) {
-    templateRecepcion = await prisma.checklistTemplate.create({
-      data: {
-        contexto: "recepcion",
-        tipoEquipoComponenteId: tipoEquipoCompleto.id,
-        nombre: "Checklist estándar — Equipo completo",
-        secciones: {
-          create: CHECKLIST_SECTIONS.map((s, si) => ({
-            titulo: s.title,
-            orden: si,
-            items: { create: s.items.map((it, ii) => ({ label: it.label, orden: ii })) },
-          })),
-        },
-      },
+  // Las plantillas por defecto usan explícitamente ids derivados de
+  // CHECKLIST_SECTIONS (sección.id / item.id) — prefijados por contexto,
+  // ya que ChecklistTemplateSeccion/Item tienen ids globales y ambos
+  // contextos (recepcion/calidad) generan su propia plantilla — para que
+  // las respuestas de las actas semilla (`actasIniciales` /
+  // `actasRecepcionIniciales`), guardadas con esas mismas claves
+  // (ver src/lib/mock-data.ts), sigan alineadas con los items de su
+  // plantilla tras la migración a plantillas configurables.
+  async function seedTemplateEquipoCompleto(contexto: "recepcion" | "calidad") {
+    let template = await prisma.checklistTemplate.findFirst({
+      where: { contexto, tipoEquipoComponenteId: tipoEquipoCompleto.id },
     });
+    if (!template) {
+      template = await prisma.checklistTemplate.create({
+        data: {
+          contexto,
+          tipoEquipoComponenteId: tipoEquipoCompleto.id,
+          nombre: "Checklist estándar — Equipo completo",
+        },
+      });
+    }
+    for (const [si, s] of CHECKLIST_SECTIONS.entries()) {
+      const seccionId = `${contexto}-${s.id}`;
+      await prisma.checklistTemplateSeccion.upsert({
+        where: { id: seccionId },
+        update: { templateId: template.id, titulo: s.title, orden: si },
+        create: { id: seccionId, templateId: template.id, titulo: s.title, orden: si },
+      });
+      for (const [ii, it] of s.items.entries()) {
+        const itemId = `${contexto}-${it.id}`;
+        await prisma.checklistTemplateItem.upsert({
+          where: { id: itemId },
+          update: { seccionId, label: it.label, orden: ii },
+          create: { id: itemId, seccionId, label: it.label, orden: ii },
+        });
+      }
+    }
+    // Limpia secciones/items huérfanos que hayan quedado de una corrida de
+    // seed anterior a la introducción de los ids explícitos con prefijo
+    // (p. ej. cuids autogenerados por un `create` anidado previo).
+    const idsValidos = CHECKLIST_SECTIONS.map((s) => `${contexto}-${s.id}`);
+    const seccionesHuerfanas = await prisma.checklistTemplateSeccion.findMany({
+      where: { templateId: template.id, id: { notIn: idsValidos } },
+      select: { id: true },
+    });
+    if (seccionesHuerfanas.length > 0) {
+      const huerfanaIds = seccionesHuerfanas.map((s) => s.id);
+      await prisma.checklistTemplateItem.deleteMany({
+        where: { seccionId: { in: huerfanaIds } },
+      });
+      await prisma.checklistTemplateSeccion.deleteMany({
+        where: { id: { in: huerfanaIds } },
+      });
+    }
+    return template;
   }
 
-  let templateCalidad = await prisma.checklistTemplate.findFirst({
-    where: { contexto: "calidad", tipoEquipoComponenteId: tipoEquipoCompleto.id },
-  });
-  if (!templateCalidad) {
-    templateCalidad = await prisma.checklistTemplate.create({
-      data: {
-        contexto: "calidad",
-        tipoEquipoComponenteId: tipoEquipoCompleto.id,
-        nombre: "Checklist estándar — Equipo completo",
-        secciones: {
-          create: CHECKLIST_SECTIONS.map((s, si) => ({
-            titulo: s.title,
-            orden: si,
-            items: { create: s.items.map((it, ii) => ({ label: it.label, orden: ii })) },
-          })),
-        },
-      },
-    });
-  }
+  const templateRecepcion = await seedTemplateEquipoCompleto("recepcion");
+  const templateCalidad = await seedTemplateEquipoCompleto("calidad");
 
   console.log("Seed: actas de calidad y recepción...");
   for (const a of actasIniciales) {

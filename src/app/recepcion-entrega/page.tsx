@@ -23,19 +23,53 @@ export default function RecepcionEntregaPage() {
     deleteActaRecepcion,
     addActaRecepcion,
     getEquipoById,
+    tiposEquipoComponente,
+    checklistTemplates,
   } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [tipoEquipoComponenteId, setTipoEquipoComponenteId] = useState("");
   const [form, setForm] = useState({
     ...createEmptyActaRecepcion(),
     equipoId: "",
   });
 
+  function resolveTemplate(tipoId: string) {
+    const plantillasRecepcion = checklistTemplates.filter(
+      (t) => t.contexto === "recepcion" && t.activo
+    );
+    const porTipo = plantillasRecepcion.find(
+      (t) => t.tipoEquipoComponenteId === tipoId
+    );
+    if (porTipo) return porTipo;
+    const tipoEquipoCompleto = tiposEquipoComponente.find(
+      (t) => t.clave === "equipo_completo"
+    );
+    return plantillasRecepcion.find(
+      (t) => t.tipoEquipoComponenteId === tipoEquipoCompleto?.id
+    );
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    const template = resolveTemplate(tipoEquipoComponenteId);
+    if (!template) {
+      alert(
+        "No hay una plantilla de checklist configurada para este tipo de equipo/componente."
+      );
+      return;
+    }
     const id = await addActaRecepcion({
       ...form,
-      respuestas: createEmptyRespuestasRecepcion(),
+      templateId: template.id,
+      tipoEquipoComponenteId: tipoEquipoComponenteId || template.tipoEquipoComponenteId,
+      respuestas: createEmptyRespuestasRecepcion(
+        template.secciones.map((s) => ({
+          id: s.id,
+          title: s.titulo,
+          items: s.items.map((it) => ({ id: it.id, label: it.label })),
+        }))
+      ),
     });
     setModalOpen(false);
     router.push(`/recepcion-entrega/${id}`);
@@ -50,6 +84,7 @@ export default function RecepcionEntregaPage() {
           <button
             onClick={() => {
               setForm({ ...createEmptyActaRecepcion(), equipoId: "" });
+              setTipoEquipoComponenteId("");
               setModalOpen(true);
             }}
             className="btn-primary flex items-center gap-2"
@@ -209,6 +244,21 @@ export default function RecepcionEntregaPage() {
               placeholder="Ej: Ingreso por reparación mayor"
               required
             />
+          </div>
+          <div>
+            <label className="label-field">Tipo de Equipo/Componente</label>
+            <select
+              className="input-field"
+              value={tipoEquipoComponenteId}
+              onChange={(e) => setTipoEquipoComponenteId(e.target.value)}
+            >
+              <option value="">Equipo completo (checklist estándar)</option>
+              {tiposEquipoComponente.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button

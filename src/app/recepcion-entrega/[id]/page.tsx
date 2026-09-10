@@ -4,19 +4,30 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, CheckCircle } from "lucide-react";
 import { useApp } from "@/lib/context";
+import type { ChecklistTemplate } from "@/lib/context";
 import RecepcionChecklistForm from "@/components/RecepcionChecklistForm";
+import { CHECKLIST_SECTIONS } from "@/lib/checklist-data";
 import type { ActaRecepcion, Equipo } from "@/lib/types";
 import type { RespuestaRecepcion } from "@/lib/recepcion-data";
 
 function ActaRecepcionEditor({
   acta,
   equipo,
+  template,
 }: {
   acta: ActaRecepcion;
   equipo: Equipo | undefined;
+  template: ChecklistTemplate | undefined;
 }) {
   const router = useRouter();
   const { updateActaRecepcion } = useApp();
+  const secciones = template
+    ? template.secciones.map((s) => ({
+        id: s.id,
+        title: s.titulo,
+        items: s.items.map((it) => ({ id: it.id, label: it.label })),
+      }))
+    : CHECKLIST_SECTIONS;
 
   function updateField(field: string, value: string) {
     updateActaRecepcion(acta.id, { [field]: value });
@@ -161,6 +172,7 @@ function ActaRecepcionEditor({
       <RecepcionChecklistForm
         respuestas={acta.respuestas}
         onChange={updateRespuestas}
+        secciones={secciones}
       />
 
       <div className="card p-6 mt-6">
@@ -202,7 +214,12 @@ function ActaRecepcionEditor({
 
 export default function ActaRecepcionDetailPage() {
   const params = useParams();
-  const { getActaRecepcionById, getEquipoById } = useApp();
+  const {
+    getActaRecepcionById,
+    getEquipoById,
+    checklistTemplates,
+    tiposEquipoComponente,
+  } = useApp();
 
   const acta = getActaRecepcionById(params.id as string);
 
@@ -217,10 +234,25 @@ export default function ActaRecepcionDetailPage() {
     );
   }
 
+  let template = acta.templateId
+    ? checklistTemplates.find((t) => t.id === acta.templateId)
+    : undefined;
+  if (!template) {
+    const tipoEquipoCompleto = tiposEquipoComponente.find(
+      (t) => t.clave === "equipo_completo"
+    );
+    template = checklistTemplates.find(
+      (t) =>
+        t.contexto === "recepcion" &&
+        t.tipoEquipoComponenteId === tipoEquipoCompleto?.id
+    );
+  }
+
   return (
     <ActaRecepcionEditor
       acta={acta}
       equipo={getEquipoById(acta.equipoId)}
+      template={template}
     />
   );
 }
