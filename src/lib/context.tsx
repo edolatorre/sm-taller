@@ -24,6 +24,7 @@ import type {
   Repuesto,
   AsignacionRepuesto,
   EstadoRepuestoAsignado,
+  Adjunto,
 } from "./types";
 import type { ModuloId } from "./permissions";
 import {
@@ -94,6 +95,15 @@ export interface KpiDefinicion {
   descripcion: string;
   icono: string;
   colorClass: string;
+}
+
+export interface UsuarioKpiPreferencia {
+  id: string;
+  usuarioId: string;
+  kpiId: string;
+  orden: number;
+  visible: boolean;
+  kpi: KpiDefinicion;
 }
 
 function canAssign(user: Usuario) {
@@ -240,6 +250,15 @@ interface AppContextType {
   deleteAsignacionRepuesto: (id: string) => Promise<void>;
   getAsignacionesRepuestoByEquipo: (equipoId: string) => AsignacionRepuesto[];
   getAsignacionesRepuestoByOrden: (ordenId: string) => AsignacionRepuesto[];
+  uploadAdjuntos: (asignacionTareaId: string, files: File[]) => Promise<Adjunto[]>;
+  getAdjuntosByAsignacion: (asignacionTareaId: string) => Promise<Adjunto[]>;
+  deleteAdjunto: (id: string) => Promise<void>;
+  kpiPreferencias: UsuarioKpiPreferencia[];
+  getKpiPreferencias: (usuarioId: string) => Promise<UsuarioKpiPreferencia[]>;
+  updateKpiPreferencias: (
+    usuarioId: string,
+    preferencias: { kpiId: string; orden: number; visible: boolean }[]
+  ) => Promise<UsuarioKpiPreferencia[]>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -271,6 +290,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ChecklistTemplate[]
   >([]);
   const [kpis, setKpis] = useState<KpiDefinicion[]>([]);
+  const [kpiPreferencias, setKpiPreferencias] = useState<UsuarioKpiPreferencia[]>([]);
   const [permisosPorRol, setPermisosPorRol] =
     useState<Record<RolUsuario, ModuloId[]>>(PERMISOS_POR_ROL);
 
@@ -928,6 +948,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOrdenes((prev) => prev.filter((o) => o.id !== id));
   }, []);
 
+  const uploadAdjuntos = useCallback(
+    async (asignacionTareaId: string, files: File[]) => {
+      const formData = new FormData();
+      formData.append("asignacionTareaId", asignacionTareaId);
+      for (const file of files) formData.append("file", file);
+      const res = await fetch("/api/adjuntos", { method: "POST", body: formData });
+      if (!res.ok) {
+        let message = "Error al subir adjuntos";
+        try {
+          const body = await res.json();
+          if (body?.error) message = body.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+      return res.json() as Promise<Adjunto[]>;
+    },
+    []
+  );
+
+  const getAdjuntosByAsignacion = useCallback(async (asignacionTareaId: string) => {
+    return fetchJson<Adjunto[]>(
+      `/api/adjuntos?asignacionTareaId=${encodeURIComponent(asignacionTareaId)}`
+    );
+  }, []);
+
+  const deleteAdjunto = useCallback(async (id: string) => {
+    await fetchJson(`/api/adjuntos/${id}`, { method: "DELETE" });
+  }, []);
+
+  const getKpiPreferencias = useCallback(async (usuarioId: string) => {
+    const preferencias = await fetchJson<UsuarioKpiPreferencia[]>(
+      `/api/kpis/preferencias?usuarioId=${encodeURIComponent(usuarioId)}`
+    );
+    setKpiPreferencias(preferencias);
+    return preferencias;
+  }, []);
+
+  const updateKpiPreferencias = useCallback(
+    async (
+      usuarioId: string,
+      preferencias: { kpiId: string; orden: number; visible: boolean }[]
+    ) => {
+      const actualizadas = await fetchJson<UsuarioKpiPreferencia[]>(
+        "/api/kpis/preferencias",
+        { method: "PUT", body: JSON.stringify({ usuarioId, preferencias }) }
+      );
+      setKpiPreferencias(actualizadas);
+      return actualizadas;
+    },
+    []
+  );
+
   if (loading) {
     return <div className="p-8 text-center text-brand-grey">Cargando...</div>;
   }
@@ -1016,6 +1090,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteAsignacionRepuesto,
         getAsignacionesRepuestoByEquipo,
         getAsignacionesRepuestoByOrden,
+        uploadAdjuntos,
+        getAdjuntosByAsignacion,
+        deleteAdjunto,
+        kpiPreferencias,
+        getKpiPreferencias,
+        updateKpiPreferencias,
       }}
     >
       {children}

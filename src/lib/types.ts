@@ -269,6 +269,17 @@ export interface AsignacionTarea {
   parametrosTecnicos?: any;
 }
 
+export interface Adjunto {
+  id: string;
+  asignacionTareaId: string;
+  urlRelativa: string;
+  nombreOriginal: string;
+  mimeType: string;
+  tamanioBytes: number;
+  subidoPorId: string | null;
+  createdAt: string;
+}
+
 export interface EmailNotificacion {
   id: string;
   para: string;
