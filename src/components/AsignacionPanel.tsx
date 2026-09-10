@@ -34,6 +34,10 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
 
   const asignacionesOrden = getAsignacionesByOrden(ordenId);
   const puedeAsignar = canCurrentUserAssign();
+  const totalHoras = asignacionesOrden.reduce(
+    (sum, a) => sum + (a.horasTrabajadas ? Number(a.horasTrabajadas) : 0),
+    0
+  );
 
   const mecanicosConUsuario = colaboradores.filter(
     (c) =>
@@ -126,9 +130,16 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
       )}
 
       <div className="space-y-3">
-        <p className="text-sm font-medium">
-          Tareas asignadas ({asignacionesOrden.length})
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">
+            Personal asignado ({asignacionesOrden.length})
+          </p>
+          {totalHoras > 0 && (
+            <p className="text-xs font-medium text-brand-blue bg-brand-blue/10 rounded-full px-3 py-1">
+              Total Horas Hombre: {totalHoras}
+            </p>
+          )}
+        </div>
         {asignacionesOrden.length === 0 ? (
           <p className="text-sm text-brand-grey">Sin asignaciones aún.</p>
         ) : (
@@ -162,7 +173,14 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
                     {asg.fechaAsignacion}
                   </span>
                 </div>
-                <p className="text-sm font-medium">{col?.nombre ?? "—"}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{col?.nombre ?? "—"}</p>
+                  {asg.horasTrabajadas != null && (
+                    <span className="text-xs font-medium text-brand-grey">
+                      {Number(asg.horasTrabajadas)} h
+                    </span>
+                  )}
+                </div>
                 {asg.instrucciones && (
                   <p className="text-xs text-brand-grey mt-1">
                     {asg.instrucciones}

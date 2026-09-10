@@ -29,6 +29,9 @@ export default function MisTareasPage() {
 
   const [comentarioId, setComentarioId] = useState<string | null>(null);
   const [comentario, setComentario] = useState("");
+  const [horasPorTarea, setHorasPorTarea] = useState<Record<string, string>>(
+    {}
+  );
 
   if (!currentUser.colaboradorId) {
     return (
@@ -68,7 +71,18 @@ export default function MisTareasPage() {
   }
 
   async function completarTarea(id: string) {
-    await actualizarAsignacion(id, { estado: "completada" });
+    const horas = horasPorTarea[id];
+    const horasTrabajadas =
+      horas && horas.trim() !== "" ? Number(horas) : undefined;
+    await actualizarAsignacion(id, {
+      estado: "completada",
+      ...(horasTrabajadas !== undefined ? { horasTrabajadas } : {}),
+    });
+    setHorasPorTarea((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   async function enviarObservacion(id: string) {
@@ -216,6 +230,20 @@ export default function MisTareasPage() {
                   {(tarea.estado === "pendiente" ||
                     tarea.estado === "en_proceso") && (
                     <>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        className="input-field text-sm w-28"
+                        placeholder="Horas trab."
+                        value={horasPorTarea[tarea.id] ?? ""}
+                        onChange={(e) =>
+                          setHorasPorTarea((prev) => ({
+                            ...prev,
+                            [tarea.id]: e.target.value,
+                          }))
+                        }
+                      />
                       <button
                         onClick={() => completarTarea(tarea.id)}
                         className="btn-primary text-sm flex items-center gap-1.5"

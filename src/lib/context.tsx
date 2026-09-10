@@ -213,6 +213,8 @@ interface AppContextType {
     data: {
       estado?: EstadoAsignacion;
       comentarioMecanico?: string;
+      horasTrabajadas?: number;
+      parametrosTecnicos?: Record<string, unknown>;
     }
   ) => Promise<{ ok: boolean; error?: string }>;
   canCurrentUserAssign: () => boolean;
@@ -584,6 +586,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       data: {
         estado?: EstadoAsignacion;
         comentarioMecanico?: string;
+        horasTrabajadas?: number;
+        parametrosTecnicos?: Record<string, unknown>;
       }
     ) => {
       const asignacion = asignaciones.find((a) => a.id === id);

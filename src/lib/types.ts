@@ -264,6 +264,9 @@ export interface AsignacionTarea {
   comentarioMecanico: string;
   fechaAsignacion: string;
   fechaActualizacion: string;
+  horasTrabajadas?: number | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parametrosTecnicos?: any;
 }
 
 export interface EmailNotificacion {
