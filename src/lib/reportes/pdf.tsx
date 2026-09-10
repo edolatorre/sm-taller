@@ -80,6 +80,13 @@ function Footer() {
   );
 }
 
+/** Inserta espacios de ancho cero cada `chunk` caracteres para que cadenas largas sin
+ *  espacios (N° de serie, N° de parte) puedan cortarse dentro de columnas angostas. */
+function breakLong(text: string, chunk = 7): string {
+  if (text.length <= chunk) return text;
+  return text.replace(new RegExp(`(.{${chunk}})`, "g"), "$1​");
+}
+
 function Table({
   columns,
   rows,
@@ -119,18 +126,30 @@ export function ResumenSemanalPDF({ data }: { data: Awaited<ReturnType<typeof ge
       <Page size="A4" style={styles.page}>
         <Header titulo="Resumen Semanal del Taller" />
 
-        <Text style={styles.sectionTitle}>Órdenes de Trabajo</Text>
+        <Text style={styles.sectionTitle}>Panorama general</Text>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Activas</Text>
+          <Text style={styles.summaryLabel}>Equipos en el taller</Text>
+          <Text style={styles.summaryValue}>{data.totalEquipos}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Órdenes de Trabajo — Activas</Text>
           <Text style={styles.summaryValue}>{data.ordenesActivas}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Pausadas</Text>
+          <Text style={styles.summaryLabel}>Órdenes de Trabajo — Pausadas</Text>
           <Text style={styles.summaryValue}>{data.ordenesPausadas}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Terminadas</Text>
+          <Text style={styles.summaryLabel}>Órdenes de Trabajo — Terminadas</Text>
           <Text style={styles.summaryValue}>{data.ordenesTerminadas}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Clientes activos</Text>
+          <Text style={styles.summaryValue}>{data.clientesActivos}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Horas Hombre registradas (últimos 7 días)</Text>
+          <Text style={styles.summaryValue}>{data.horasHombreSemanaTotal.toFixed(1)}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Equipos en Taller por Estado</Text>
@@ -145,22 +164,62 @@ export function ResumenSemanalPDF({ data }: { data: Awaited<ReturnType<typeof ge
           }))}
         />
 
-        <Text style={styles.sectionTitle}>Top 5 OTs sin avance</Text>
+        <Text style={styles.sectionTitle}>Detalle de equipos actualmente en taller</Text>
         <Table
           columns={[
-            { header: "OT", width: "20%", key: "numeroOT" },
-            { header: "Descripción", width: "40%", key: "descripcion" },
-            { header: "Etapa", width: "20%", key: "etapa" },
+            { header: "Equipo", width: "17%", key: "equipo" },
+            { header: "N° Serie", width: "14%", key: "nroSerie" },
+            { header: "Cliente", width: "18%", key: "cliente" },
+            { header: "Estado", width: "16%", key: "estado" },
+            { header: "Días en taller", width: "10%", key: "diasEnTaller" },
+            { header: "Trabajo", width: "25%", key: "trabajo" },
+          ]}
+          rows={data.equiposEnTallerDetalle.map((e) => ({ ...e, nroSerie: breakLong(e.nroSerie) }))}
+        />
+
+        <Text style={styles.sectionTitle}>Top 10 OTs sin avance</Text>
+        <Table
+          columns={[
+            { header: "OT", width: "13%", key: "numeroOT" },
+            { header: "Descripción", width: "30%", key: "descripcion" },
+            { header: "Etapa", width: "17%", key: "etapa" },
+            { header: "A cargo", width: "20%", key: "personalCargo" },
             { header: "Días sin avance", width: "20%", key: "diasSinAvance" },
           ]}
           rows={data.otsSinAvance.map((o) => ({ ...o }))}
         />
 
-        <Text style={styles.sectionTitle}>Inventario</Text>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Repuestos bajo stock mínimo</Text>
-          <Text style={styles.summaryValue}>{data.repuestosBajoStock}</Text>
-        </View>
+        <Text style={styles.sectionTitle}>Checklists pendientes (borrador)</Text>
+        <Table
+          columns={[
+            { header: "Módulo", width: "28%", key: "tipo" },
+            { header: "Equipo", width: "27%", key: "equipo" },
+            { header: "Tipo de acta", width: "27%", key: "tipoActa" },
+            { header: "Fecha", width: "18%", key: "fecha" },
+          ]}
+          rows={data.checklistsPendientes.map((c) => ({ ...c }))}
+        />
+
+        <Text style={styles.sectionTitle}>Horas Hombre por colaborador (últimos 7 días)</Text>
+        <Table
+          columns={[
+            { header: "Colaborador", width: "70%", key: "colaborador" },
+            { header: "Horas", width: "30%", key: "horas" },
+          ]}
+          rows={data.horasHombreSemana.map((h) => ({ colaborador: h.colaborador, horas: h.horas.toFixed(1) }))}
+        />
+
+        <Text style={styles.sectionTitle}>Repuestos bajo stock mínimo</Text>
+        <Table
+          columns={[
+            { header: "N° Parte", width: "18%", key: "nroParte" },
+            { header: "Descripción", width: "32%", key: "descripcion" },
+            { header: "Stock", width: "14%", key: "stock" },
+            { header: "Stock mínimo", width: "16%", key: "stockMinimo" },
+            { header: "Proveedor", width: "20%", key: "proveedor" },
+          ]}
+          rows={data.repuestosBajoStockDetalle.map((r) => ({ ...r, nroParte: breakLong(r.nroParte) }))}
+        />
 
         <Footer />
       </Page>
