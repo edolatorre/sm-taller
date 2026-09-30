@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Download, Upload } from "lucide-react";
 import { useApp, type ChecklistPlantilla } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
@@ -38,6 +38,9 @@ export default function PlantillasPage() {
   const [frecuencia, setFrecuencia] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [importando, setImportando] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!empresaActivaId || empresaActivaId === "consolidado") return;
@@ -95,18 +98,94 @@ export default function PlantillasPage() {
     }
   }
 
+  async function importarArchivo(file: File) {
+    if (!empresaActivaId || empresaActivaId === "consolidado") {
+      setImportMsg({ tipo: "error", texto: "Seleccioná una empresa (no consolidado) antes de importar." });
+      return;
+    }
+    setImportando(true);
+    setImportMsg(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("empresaId", empresaActivaId);
+      const res = await fetch("/api/checklist-import", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        const detalle = Array.isArray(data.errores)
+          ? data.errores.map((e: { fila: number; mensaje: string }) => `Fila ${e.fila}: ${e.mensaje}`).join("\n")
+          : data.error || "Error al importar";
+        setImportMsg({ tipo: "error", texto: detalle });
+        return;
+      }
+      const resumen = Array.isArray(data.plantillas)
+        ? data.plantillas
+            .map((p: { codigo: string; version: number; itemCount: number }) => `${p.codigo}: v${p.version} (${p.itemCount} ítems)`)
+            .join(", ")
+        : "";
+      setImportMsg({ tipo: "ok", texto: `Importación exitosa. ${resumen}` });
+      fetch(`/api/checklist-plantillas?empresaId=${encodeURIComponent(empresaActivaId)}`)
+        .then((r) => r.json())
+        .then((d) => setPlantillas(Array.isArray(d) ? d : []));
+    } catch {
+      setImportMsg({ tipo: "error", texto: "Error al importar el archivo" });
+    } finally {
+      setImportando(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Plantillas de Checklist"
         description="Editor de plantillas y versiones de checklist por empresa"
         action={
-          <button className="btn-primary text-sm flex items-center gap-2" onClick={() => setModalOpen(true)}>
-            <Plus size={16} />
-            Nueva Plantilla
-          </button>
+          <div className="flex items-center gap-2">
+            <a href="/api/checklist-plantillas/formato" className="btn-secondary text-sm flex items-center gap-2">
+              <Download size={16} />
+              Descargar formato
+            </a>
+            <button
+              className="btn-secondary text-sm flex items-center gap-2"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importando}
+            >
+              <Upload size={16} />
+              {importando ? "Importando..." : "Importar Excel"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importarArchivo(file);
+                e.target.value = "";
+              }}
+            />
+            <button className="btn-primary text-sm flex items-center gap-2" onClick={() => setModalOpen(true)}>
+              <Plus size={16} />
+              Nueva Plantilla
+            </button>
+          </div>
         }
       />
+
+      {importMsg && (
+        <div
+          className={`card p-4 mb-4 whitespace-pre-line text-sm ${
+            importMsg.tipo === "ok" ? "border-green-500/40 text-green-700" : "border-red-500/40 text-red-600"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span>{importMsg.texto}</span>
+            <button className="text-xs text-brand-grey hover:text-brand-dark" onClick={() => setImportMsg(null)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="card p-12 text-center text-brand-grey">Cargando...</div>

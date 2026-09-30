@@ -11,6 +11,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import {
   useApp,
@@ -366,6 +367,15 @@ export default function PlantillaEditorPage() {
 
         <div className="flex-1" />
 
+        {versionSeleccionada && (
+          <a
+            href={`/api/checklist-versiones/${versionSeleccionada.id}/export`}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <Download size={14} />
+            Exportar Excel
+          </a>
+        )}
         {!hayBorrador && (
           <button onClick={crearNuevaVersion} className="btn-secondary text-sm flex items-center gap-2">
             <Plus size={14} />

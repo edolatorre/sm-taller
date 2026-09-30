@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileBarChart, Download } from "lucide-react";
+import { FileBarChart, Download, ClipboardCheck } from "lucide-react";
 import { useApp } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 
@@ -123,6 +123,95 @@ function ReporteCard({ def }: { def: ReporteDef }) {
   );
 }
 
+function ResultadosChecklistCard() {
+  const { empresaActivaId, equipos } = useApp();
+  const [contexto, setContexto] = useState<"" | "recepcion" | "calidad">("");
+  const [equipoId, setEquipoId] = useState("");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+
+  const empresaValida = !!empresaActivaId && empresaActivaId !== "consolidado";
+
+  function construirUrl(formato: "xlsx" | "pdf") {
+    const params = new URLSearchParams();
+    params.set("empresaId", empresaActivaId ?? "");
+    if (contexto) params.set("contexto", contexto);
+    if (equipoId) params.set("equipoId", equipoId);
+    if (desde) params.set("desde", desde);
+    if (hasta) params.set("hasta", hasta);
+    const base = formato === "pdf" ? "/api/checklist-export/resultados/pdf" : "/api/checklist-export/resultados";
+    return `${base}?${params.toString()}`;
+  }
+
+  return (
+    <div className="card p-6 flex flex-col">
+      <div className="flex items-center gap-2 mb-2">
+        <ClipboardCheck size={20} className="text-brand-blue" />
+        <h2 className="font-semibold">Resultados de Checklists</h2>
+      </div>
+      <p className="text-sm text-brand-grey flex-1 mb-4">
+        Exporta los checklists de recepción/entrega y control de calidad ya ejecutados, con sus respuestas por ítem.
+      </p>
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <label className="label-field">Contexto</label>
+          <select className="input-field" value={contexto} onChange={(e) => setContexto(e.target.value as typeof contexto)}>
+            <option value="">Ambos</option>
+            <option value="recepcion">Recepción</option>
+            <option value="calidad">Calidad</option>
+          </select>
+        </div>
+        <div>
+          <label className="label-field">Equipo</label>
+          <select className="input-field" value={equipoId} onChange={(e) => setEquipoId(e.target.value)}>
+            <option value="">Todos</option>
+            {equipos.map((eq) => (
+              <option key={eq.id} value={eq.id}>
+                {eq.marca} {eq.modelo}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div>
+          <label className="label-field">Desde</label>
+          <input type="date" className="input-field" value={desde} onChange={(e) => setDesde(e.target.value)} />
+        </div>
+        <div>
+          <label className="label-field">Hasta</label>
+          <input type="date" className="input-field" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <a
+          href={empresaValida ? construirUrl("xlsx") : undefined}
+          className={`btn-secondary flex-1 flex items-center justify-center gap-2 ${
+            !empresaValida ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+          }`}
+        >
+          <Download size={16} />
+          Excel
+        </a>
+        <a
+          href={empresaValida ? construirUrl("pdf") : undefined}
+          className={`btn-primary flex-1 flex items-center justify-center gap-2 ${
+            !empresaValida ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+          }`}
+        >
+          <Download size={16} />
+          PDF
+        </a>
+      </div>
+      {!empresaValida && (
+        <p className="text-xs text-brand-grey mt-2">Seleccioná una empresa (no consolidado) para exportar.</p>
+      )}
+    </div>
+  );
+}
+
 export default function ReportesPage() {
   return (
     <div>
@@ -134,6 +223,7 @@ export default function ReportesPage() {
         {REPORTES.map((def) => (
           <ReporteCard key={def.clave} def={def} />
         ))}
+        <ResultadosChecklistCard />
       </div>
     </div>
   );

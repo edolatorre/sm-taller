@@ -143,7 +143,7 @@ export const EQUIPO_GENERICO_SECCIONES: { titulo: string; items: { codigo: strin
   {
     titulo: "Sistema Hidraulico",
     items: [
-      { codigo: "CILINDROS_DE_DIRECCION", descripcion: "Cilindros De Dirección" },
+      { codigo: "CILINDROS_DE_DIRECCION_2", descripcion: "Cilindros De Dirección" },
       { codigo: "CILINDROS_DE_LEVANTE", descripcion: "Cilindros De Levante" },
       { codigo: "CILINDROS_DE_VOLTEO", descripcion: "Cilindros De Volteo" },
     ],
@@ -196,7 +196,7 @@ export const EQUIPO_GENERICO_SECCIONES: { titulo: string; items: { codigo: strin
       { codigo: "PARADAS_DE_EMERGENCIAS_EXTREMO_POSTERIOR", descripcion: "Paradas De Emergencias Extremo Posterior" },
       { codigo: "DIRECCION_DE_EMERGENCIA", descripcion: "Dirección De Emergencia" },
       { codigo: "ALARMA_MARCHA_ATRAS", descripcion: "Alarma Marcha Atrás" },
-      { codigo: "CINTURON_DE_SEGURIDAD", descripcion: "Cinturón De Seguridad" },
+      { codigo: "CINTURON_DE_SEGURIDAD_2", descripcion: "Cinturón De Seguridad" },
       { codigo: "FUNCIONAMIENTO_FRENOS_DE_SERVICIO", descripcion: "Funcionamiento Frenos De Servicio" },
       { codigo: "FARO_DE_DESTELLO_GIRATORIO_BALIZA", descripcion: "Faro De Destello Giratorio  (Baliza)" },
       { codigo: "LOGOS_DE_SEGURIDAD", descripcion: "Logos De Seguridad" },
