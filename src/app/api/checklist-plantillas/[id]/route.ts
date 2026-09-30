@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+const includeVersiones = {
+  versiones: {
+    orderBy: { version: "asc" as const },
+    include: { secciones: { orderBy: { orden: "asc" as const }, include: { items: { orderBy: { orden: "asc" as const } } } } },
+  },
+};
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const plantilla = await prisma.checklistPlantilla.findUnique({ where: { id }, include: includeVersiones });
+    if (!plantilla) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    return NextResponse.json(plantilla);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Error" }, { status: 400 });
+  }
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

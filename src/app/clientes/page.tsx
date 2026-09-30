@@ -10,7 +10,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { createEmptyCliente, type Cliente } from "@/lib/types";
 
 export default function ClientesPage() {
-  const { clientes, addCliente, updateCliente, deleteCliente } = useApp();
+  const { clientes, addCliente, updateCliente, deleteCliente, empresaActivaId } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -70,10 +70,12 @@ export default function ClientesPage() {
         title="Clientes"
         description="Gestión de clientes y propietarios de equipos"
         action={
-          <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-            <Plus size={18} />
-            Nuevo Cliente
-          </button>
+          empresaActivaId !== "consolidado" && (
+            <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+              <Plus size={18} />
+              Nuevo Cliente
+            </button>
+          )
         }
       />
 
