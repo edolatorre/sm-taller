@@ -121,3 +121,7 @@ export function puedeGestionarPermisos(user: Usuario): boolean {
 export function puedeUsarAccionesIA(user: Usuario): boolean {
   return user.rol === "admin" || user.rol === "supervisor";
 }
+
+export function puedeConsolidar(user: Usuario): boolean {
+  return user.puedeConsolidar === true;
+}

@@ -73,7 +73,10 @@ export default function ChecklistForm({
       {secciones.map((section) => {
         const sectionStats = countRespuestas(
           Object.fromEntries(
-            section.items.map((item) => [item.id, respuestas[item.id]])
+            section.items.map((item) => [
+              item.id,
+              respuestas[item.id] ?? { estado: null, observaciones: "" },
+            ])
           )
         );
         const isOpen = expanded[section.id];

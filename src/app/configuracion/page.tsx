@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Users, ListChecks, Plus, Trash2 } from "lucide-react";
+import { Shield, Users, ListChecks, Plus, Trash2, Building2 } from "lucide-react";
 import { useApp, type EstadoDefinicion } from "@/lib/context";
 import PageHeader from "@/components/PageHeader";
 import PermisosEditor from "@/components/PermisosEditor";
@@ -274,6 +274,208 @@ function ChecklistTemplatesPanel() {
   );
 }
 
+function ColaboradoresPorEmpresa() {
+  const {
+    empresas,
+    colaboradores,
+    colaboradorEmpresas,
+    addColaboradorEmpresa,
+    deleteColaboradorEmpresa,
+  } = useApp();
+
+  function toggle(colaboradorId: string, empresaId: string, checked: boolean) {
+    if (checked) {
+      addColaboradorEmpresa({ colaboradorId, empresaId, activo: true });
+    } else {
+      const row = colaboradorEmpresas.find(
+        (ce) => ce.colaboradorId === colaboradorId && ce.empresaId === empresaId
+      );
+      if (row) deleteColaboradorEmpresa(row.id);
+    }
+  }
+
+  return (
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+        <Building2 size={20} className="text-brand-blue" />
+        Colaboradores por Empresa
+      </h2>
+      <p className="text-sm text-brand-grey mb-6">
+        Indica en qué empresa(s) trabaja cada colaborador. Un mismo
+        colaborador puede estar vinculado a ambas.
+      </p>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {empresas.map((empresa) => (
+          <div key={empresa.id} className="border border-brand-border rounded-lg p-4">
+            <h3 className="font-semibold mb-3">{empresa.nombre}</h3>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-brand-grey text-xs">
+                  <th className="text-left p-1.5 font-medium">Colaborador</th>
+                  <th className="text-center p-1.5 font-medium">Vinculado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colaboradores.map((c) => {
+                  const vinculado = colaboradorEmpresas.some(
+                    (ce) => ce.colaboradorId === c.id && ce.empresaId === empresa.id
+                  );
+                  return (
+                    <tr key={c.id} className="border-t border-brand-border/50">
+                      <td className="p-1.5">{c.nombre}</td>
+                      <td className="p-1.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={vinculado}
+                          onChange={(ev) => toggle(c.id, empresa.id, ev.target.checked)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UsuariosPorEmpresa() {
+  const {
+    empresas,
+    usuarios,
+    usuarioEmpresas,
+    addUsuarioEmpresa,
+    updateUsuarioEmpresa,
+    deleteUsuarioEmpresa,
+    updateUsuario,
+  } = useApp();
+  const [nuevoUsuarioId, setNuevoUsuarioId] = useState<Record<string, string>>({});
+
+  async function handleAdd(empresaId: string) {
+    const usuarioId = nuevoUsuarioId[empresaId];
+    if (!usuarioId) return;
+    await addUsuarioEmpresa({ usuarioId, empresaId, rol: "tecnico" });
+    setNuevoUsuarioId((prev) => ({ ...prev, [empresaId]: "" }));
+  }
+
+  function handlePuedeConsolidar(usuarioId: string, checked: boolean) {
+    const usuario = usuarios.find((u) => u.id === usuarioId);
+    if (!usuario) return;
+    const { id, ultimoAcceso, ...data } = usuario;
+    updateUsuario(id, { ...data, puedeConsolidar: checked });
+  }
+
+  return (
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+        <Users size={20} className="text-brand-blue" />
+        Usuarios por Empresa
+      </h2>
+      <p className="text-sm text-brand-grey mb-6">
+        Rol de cada usuario por empresa, y si puede ver el consolidado de
+        ambas empresas.
+      </p>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {empresas.map((empresa) => {
+          const filas = usuarioEmpresas.filter((ue) => ue.empresaId === empresa.id);
+          const disponibles = usuarios.filter(
+            (u) => !filas.some((f) => f.usuarioId === u.id)
+          );
+          return (
+            <div key={empresa.id} className="border border-brand-border rounded-lg p-4">
+              <h3 className="font-semibold mb-3">{empresa.nombre}</h3>
+              <table className="w-full text-sm mb-3">
+                <thead>
+                  <tr className="text-brand-grey text-xs">
+                    <th className="text-left p-1.5 font-medium">Usuario</th>
+                    <th className="text-left p-1.5 font-medium">Rol</th>
+                    <th className="text-center p-1.5 font-medium">Consolida</th>
+                    <th className="text-right p-1.5 font-medium">—</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((ue) => {
+                    const usuario = usuarios.find((u) => u.id === ue.usuarioId);
+                    if (!usuario) return null;
+                    return (
+                      <tr key={ue.id} className="border-t border-brand-border/50">
+                        <td className="p-1.5">{usuario.nombre}</td>
+                        <td className="p-1.5">
+                          <select
+                            className="input-field py-1 text-sm"
+                            value={ue.rol}
+                            onChange={(ev) =>
+                              updateUsuarioEmpresa(ue.id, {
+                                rol: ev.target.value as RolUsuario,
+                              })
+                            }
+                          >
+                            {ROLES.map((rol) => (
+                              <option key={rol} value={rol}>
+                                {ROL_LABELS[rol]}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-1.5 text-center">
+                          <input
+                            type="checkbox"
+                            checked={usuario.puedeConsolidar}
+                            onChange={(ev) =>
+                              handlePuedeConsolidar(usuario.id, ev.target.checked)
+                            }
+                          />
+                        </td>
+                        <td className="p-1.5 text-right">
+                          <button
+                            onClick={() => deleteUsuarioEmpresa(ue.id)}
+                            className="p-1 text-brand-grey hover:text-red-400 transition-colors"
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="flex gap-2">
+                <select
+                  className="input-field py-1.5 text-sm flex-1"
+                  value={nuevoUsuarioId[empresa.id] ?? ""}
+                  onChange={(ev) =>
+                    setNuevoUsuarioId((prev) => ({ ...prev, [empresa.id]: ev.target.value }))
+                  }
+                >
+                  <option value="">Agregar usuario...</option>
+                  {disponibles.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => handleAdd(empresa.id)}
+                  className="btn-secondary flex items-center gap-1.5 text-sm px-3"
+                >
+                  <Plus size={14} />
+                  Agregar
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ConfiguracionPage() {
   const {
     permisosPorRol,
@@ -436,6 +638,14 @@ export default function ConfiguracionPage() {
 
       <div className="mt-6">
         <ChecklistTemplatesPanel />
+      </div>
+
+      <div className="mt-6">
+        <ColaboradoresPorEmpresa />
+      </div>
+
+      <div className="mt-6">
+        <UsuariosPorEmpresa />
       </div>
     </>
   );

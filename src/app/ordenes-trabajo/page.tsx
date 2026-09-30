@@ -33,6 +33,7 @@ export default function OrdenesTrabajoPage() {
     addOrden,
     deleteOrden,
     getEquipoById,
+    empresaActivaId,
   } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -62,16 +63,18 @@ export default function OrdenesTrabajoPage() {
         title="Órdenes de Trabajo"
         description="Gestión de OT — seguimiento por etapa y estado"
         action={
-          <button
-            onClick={() => {
-              setForm({ ...createEmptyOrden(), equipoId: "", repuestos: [] });
-              setModalOpen(true);
-            }}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Nueva OT
-          </button>
+          empresaActivaId !== "consolidado" && (
+            <button
+              onClick={() => {
+                setForm({ ...createEmptyOrden(), equipoId: "", repuestos: [] });
+                setModalOpen(true);
+              }}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Nueva OT
+            </button>
+          )
         }
       />
 

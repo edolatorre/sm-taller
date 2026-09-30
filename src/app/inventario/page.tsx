@@ -39,6 +39,7 @@ export default function InventarioPage() {
     equipos,
     getEquipoById,
     getOrdenById,
+    empresaActivaId,
   } = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -79,6 +80,7 @@ export default function InventarioPage() {
   function openEdit(repuesto: Repuesto) {
     setEditing(repuesto);
     setForm({
+      empresaId: repuesto.empresaId,
       nroParte: repuesto.nroParte,
       descripcion: repuesto.descripcion,
       marca: repuesto.marca,
@@ -108,10 +110,12 @@ export default function InventarioPage() {
         title="Inventario"
         description="Catálogo de repuestos y estado de llegada por equipo"
         action={
-          <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-            <Plus size={18} />
-            Nuevo Repuesto
-          </button>
+          empresaActivaId !== "consolidado" && (
+            <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+              <Plus size={18} />
+              Nuevo Repuesto
+            </button>
+          )
         }
       />
 

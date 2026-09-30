@@ -6,9 +6,11 @@ export async function GET(req: NextRequest) {
   try {
     const equipoId = req.nextUrl.searchParams.get("equipoId");
     const ordenId = req.nextUrl.searchParams.get("ordenId");
+    const empresaId = req.nextUrl.searchParams.get("empresaId");
     const where: Prisma.AsignacionRepuestoWhereInput = {};
     if (equipoId) where.equipoId = equipoId;
     if (ordenId) where.ordenId = ordenId;
+    if (empresaId && empresaId !== "consolidado") where.empresaId = empresaId;
     const asignaciones = await prisma.asignacionRepuesto.findMany({ where });
     return NextResponse.json(asignaciones);
   } catch (error) {

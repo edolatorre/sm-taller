@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import UserSwitcher from "@/components/UserSwitcher";
+import EmpresaSelector from "@/components/EmpresaSelector";
 import { useApp } from "@/lib/context";
 import { MODULOS, type ModuloId } from "@/lib/permissions";
 
@@ -114,6 +115,7 @@ export default function Sidebar() {
           })
         )}
       </nav>
+      <EmpresaSelector />
       <UserSwitcher />
     </>
   );
