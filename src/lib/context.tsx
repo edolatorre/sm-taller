@@ -6,6 +6,8 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   type ReactNode,
 } from "react";
 import type {
@@ -33,6 +35,7 @@ import {
   puedeAccederModulo,
   puedeAccederRuta,
   puedeAsignarOT,
+  puedeConsolidar,
 } from "./permissions";
 import { usuariosIniciales } from "./mock-data";
 import {
@@ -40,6 +43,8 @@ import {
   enviarEmailCompletada,
   enviarEmailObservacion,
 } from "./email";
+
+const EMPRESA_ACTIVA_STORAGE_KEY = "empresaActivaId";
 
 export interface Empresa {
   id: string;
@@ -64,6 +69,88 @@ export interface TipoEquipoComponente {
   label: string;
 }
 
+export interface ColaboradorEmpresa {
+  id: string;
+  colaboradorId: string;
+  empresaId: string;
+  activo: boolean;
+}
+
+export interface UsuarioEmpresa {
+  id: string;
+  usuarioId: string;
+  empresaId: string;
+  rol: RolUsuario;
+}
+
+// ---------------------------------------------------------------------------
+// Checklists configurables: plantilla (identidad lógica) + versiones
+// (contenido versionado — solo la versión "borrador" se edita).
+// ---------------------------------------------------------------------------
+
+export type ChecklistVersionEstado = "borrador" | "publicada" | "archivada";
+export type ChecklistTipoRespuesta =
+  | "ok_nok"
+  | "ok_nok_na"
+  | "numerico"
+  | "horometro"
+  | "seleccion"
+  | "texto"
+  | "foto";
+
+export interface ChecklistVersionItem {
+  id: string;
+  seccionId: string;
+  codigo: string;
+  descripcion: string;
+  orden: number;
+  tipoRespuesta: ChecklistTipoRespuesta;
+  unidad?: string | null;
+  valorMin?: number | null;
+  valorMax?: number | null;
+  opciones: string[];
+  obligatorio: boolean;
+  critico: boolean;
+  fotoSiFalla: boolean;
+}
+
+export interface ChecklistVersionSeccion {
+  id: string;
+  versionId: string;
+  titulo: string;
+  orden: number;
+  items: ChecklistVersionItem[];
+}
+
+export interface ChecklistVersion {
+  id: string;
+  plantillaId: string;
+  version: number;
+  estado: ChecklistVersionEstado;
+  origen: string;
+  notas?: string | null;
+  createdAt: string;
+  publicadaEn?: string | null;
+  secciones: ChecklistVersionSeccion[];
+}
+
+export interface ChecklistPlantilla {
+  id: string;
+  empresaId: string;
+  codigo: string;
+  nombre: string;
+  contexto: string;
+  aplicaA: string;
+  tipoEquipoComponenteId: string;
+  frecuencia?: string | null;
+  activa: boolean;
+  versiones: ChecklistVersion[];
+}
+
+// Vista de compatibilidad para pantallas que aún esperan la forma "plana"
+// del viejo ChecklistTemplate (control-calidad, recepcion-entrega,
+// configuracion) — se deriva de ChecklistPlantilla + su versión publicada
+// (o, si no hay publicada, la borrador) sin duplicar estado.
 export interface ChecklistTemplateItem {
   id: string;
   seccionId: string;
@@ -80,7 +167,8 @@ export interface ChecklistTemplateSeccion {
 }
 
 export interface ChecklistTemplate {
-  id: string;
+  id: string; // = ChecklistVersion.id
+  plantillaId: string;
   contexto: string;
   tipoEquipoComponenteId: string;
   nombre: string;
@@ -145,8 +233,20 @@ interface AppContextType {
   asignaciones: AsignacionTarea[];
   emails: EmailNotificacion[];
   empresas: Empresa[];
+  empresaActivaId: string;
+  setEmpresaActivaId: (id: string) => void;
+  empresasAccesibles: () => Empresa[];
+  puedeConsolidarActual: () => boolean;
+  colaboradorEmpresas: ColaboradorEmpresa[];
+  usuarioEmpresas: UsuarioEmpresa[];
+  addColaboradorEmpresa: (data: Omit<ColaboradorEmpresa, "id">) => Promise<void>;
+  deleteColaboradorEmpresa: (id: string) => Promise<void>;
+  addUsuarioEmpresa: (data: Omit<UsuarioEmpresa, "id">) => Promise<void>;
+  updateUsuarioEmpresa: (id: string, data: Partial<Omit<UsuarioEmpresa, "id">>) => Promise<void>;
+  deleteUsuarioEmpresa: (id: string) => Promise<void>;
   estadosEquipo: EstadoDefinicion[];
   tiposEquipoComponente: TipoEquipoComponente[];
+  checklistPlantillas: ChecklistPlantilla[];
   checklistTemplates: ChecklistTemplate[];
   kpis: KpiDefinicion[];
   getEmpresaById: (id: string) => Empresa | undefined;
@@ -159,14 +259,15 @@ interface AppContextType {
   deleteEstado: (id: string) => Promise<void>;
   addTipoEquipoComponente: (data: Omit<TipoEquipoComponente, "id">) => Promise<void>;
   addChecklistTemplate: (
-    data: Omit<ChecklistTemplate, "id" | "secciones"> & {
-      secciones: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+    data: Omit<ChecklistTemplate, "id" | "secciones" | "plantillaId"> & {
+      empresaId?: string;
+      secciones: { titulo: string; orden: number; items: { codigo: string; descripcion: string; orden: number }[] }[];
     }
   ) => Promise<void>;
   updateChecklistTemplate: (
     id: string,
-    data: Partial<Omit<ChecklistTemplate, "id" | "secciones">> & {
-      secciones?: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+    data: Partial<Pick<ChecklistTemplate, "nombre" | "activo">> & {
+      secciones?: { titulo: string; orden: number; items: { codigo: string; descripcion: string; orden: number }[] }[];
     }
   ) => Promise<void>;
   deleteChecklistTemplate: (id: string) => Promise<void>;
@@ -190,12 +291,12 @@ interface AppContextType {
   ) => Promise<void>;
   deleteUsuario: (id: string) => Promise<void>;
   actas: ActaCalidad[];
-  addActa: (data: Omit<ActaCalidad, "id" | "createdAt">) => Promise<string>;
+  addActa: (data: Omit<ActaCalidad, "id" | "createdAt" | "empresaId">) => Promise<string>;
   updateActa: (id: string, data: Partial<Omit<ActaCalidad, "id" | "createdAt">>) => Promise<void>;
   deleteActa: (id: string) => Promise<void>;
   getActaById: (id: string) => ActaCalidad | undefined;
   actasRecepcion: ActaRecepcion[];
-  addActaRecepcion: (data: Omit<ActaRecepcion, "id" | "createdAt">) => Promise<string>;
+  addActaRecepcion: (data: Omit<ActaRecepcion, "id" | "createdAt" | "empresaId">) => Promise<string>;
   updateActaRecepcion: (
     id: string,
     data: Partial<Omit<ActaRecepcion, "id" | "createdAt">>
@@ -203,7 +304,7 @@ interface AppContextType {
   deleteActaRecepcion: (id: string) => Promise<void>;
   getActaRecepcionById: (id: string) => ActaRecepcion | undefined;
   ordenes: OrdenTrabajo[];
-  addOrden: (data: Omit<OrdenTrabajo, "id" | "createdAt">) => Promise<string>;
+  addOrden: (data: Omit<OrdenTrabajo, "id" | "createdAt" | "empresaId">) => Promise<string>;
   updateOrden: (id: string, data: Partial<Omit<OrdenTrabajo, "id" | "createdAt">>) => Promise<void>;
   deleteOrden: (id: string) => Promise<void>;
   getOrdenById: (id: string) => OrdenTrabajo | undefined;
@@ -231,13 +332,13 @@ interface AppContextType {
   lastEmail: EmailNotificacion | null;
   clearLastEmail: () => void;
   repuestos: Repuesto[];
-  addRepuesto: (data: Omit<Repuesto, "id" | "createdAt">) => Promise<void>;
+  addRepuesto: (data: Omit<Repuesto, "id" | "createdAt" | "empresaId">) => Promise<void>;
   updateRepuesto: (id: string, data: Partial<Omit<Repuesto, "id" | "createdAt">>) => Promise<void>;
   deleteRepuesto: (id: string) => Promise<void>;
   getRepuestoById: (id: string) => Repuesto | undefined;
   asignacionesRepuesto: AsignacionRepuesto[];
   asignarRepuesto: (
-    data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">
+    data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion" | "empresaId">
   ) => Promise<void>;
   actualizarAsignacionRepuesto: (
     id: string,
@@ -282,18 +383,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     AsignacionRepuesto[]
   >([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [empresaActivaId, setEmpresaActivaIdState] = useState<string>("");
+  const [hasBootstrapped, setHasBootstrapped] = useState(false);
+  const [colaboradorEmpresas, setColaboradorEmpresas] = useState<ColaboradorEmpresa[]>([]);
+  const [usuarioEmpresas, setUsuarioEmpresas] = useState<UsuarioEmpresa[]>([]);
   const [estadosEquipo, setEstadosEquipo] = useState<EstadoDefinicion[]>([]);
   const [tiposEquipoComponente, setTiposEquipoComponente] = useState<
     TipoEquipoComponente[]
   >([]);
-  const [checklistTemplates, setChecklistTemplates] = useState<
-    ChecklistTemplate[]
+  const [checklistPlantillas, setChecklistPlantillas] = useState<
+    ChecklistPlantilla[]
   >([]);
   const [kpis, setKpis] = useState<KpiDefinicion[]>([]);
   const [kpiPreferencias, setKpiPreferencias] = useState<UsuarioKpiPreferencia[]>([]);
   const [permisosPorRol, setPermisosPorRol] =
     useState<Record<RolUsuario, ModuloId[]>>(PERMISOS_POR_ROL);
 
+  // Carga inicial: sin filtro de empresa (necesitamos ver empresas/usuarioEmpresas
+  // para poder determinar la empresaActivaId — hay un problema de huevo y gallina,
+  // ver el segundo efecto más abajo, que re-filtra una vez que se conoce).
   useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
@@ -312,7 +420,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           empresas: Empresa[];
           estadosEquipo: EstadoDefinicion[];
           tiposEquipoComponente: TipoEquipoComponente[];
-          checklistTemplates: ChecklistTemplate[];
+          checklistPlantillas: ChecklistPlantilla[];
+          colaboradorEmpresas: ColaboradorEmpresa[];
+          usuarioEmpresas: UsuarioEmpresa[];
           kpis: KpiDefinicion[];
         }>("/api/bootstrap");
         if (cancelled) return;
@@ -329,26 +439,111 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setEmpresas(data.empresas);
         setEstadosEquipo(data.estadosEquipo);
         setTiposEquipoComponente(data.tiposEquipoComponente);
-        setChecklistTemplates(data.checklistTemplates);
+        setChecklistPlantillas(data.checklistPlantillas);
+        setColaboradorEmpresas(data.colaboradorEmpresas);
+        setUsuarioEmpresas(data.usuarioEmpresas);
         setKpis(data.kpis);
+
+        let stored: string | null = null;
+        try {
+          stored = localStorage.getItem(EMPRESA_ACTIVA_STORAGE_KEY);
+        } catch {
+          // localStorage no disponible (SSR / navegador restringido)
+        }
+        const accesibles = data.usuarioEmpresas
+          .filter((ue) => ue.usuarioId === currentUserId)
+          .map((ue) => ue.empresaId);
+        const inicial =
+          (stored && (accesibles.includes(stored) || stored === "consolidado") && stored) ||
+          accesibles[0] ||
+          data.empresas[0]?.id ||
+          "";
+        setEmpresaActivaIdState(inicial);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Error al cargar datos");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setHasBootstrapped(true);
+        }
       }
     }
     bootstrap();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Una vez conocida la empresa activa (y en cada cambio posterior), re-filtra
+  // las listas que están scoped a empresa. Se salta la corrida inicial (ya
+  // cargada en el bootstrap sin filtro) para no duplicar el primer fetch.
+  const prevEmpresaActivaRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hasBootstrapped || !empresaActivaId) return;
+    if (prevEmpresaActivaRef.current === null) {
+      prevEmpresaActivaRef.current = empresaActivaId;
+      return;
+    }
+    if (prevEmpresaActivaRef.current === empresaActivaId) return;
+    prevEmpresaActivaRef.current = empresaActivaId;
+
+    let cancelled = false;
+    async function refetchScoped() {
+      try {
+        const qs = `?empresaId=${encodeURIComponent(empresaActivaId)}`;
+        const [cli, rep, ord, act, actRec, asigRep] = await Promise.all([
+          fetchJson<Cliente[]>(`/api/clientes${qs}`),
+          fetchJson<Repuesto[]>(`/api/repuestos${qs}`),
+          fetchJson<OrdenTrabajo[]>(`/api/ordenes${qs}`),
+          fetchJson<ActaCalidad[]>(`/api/actas${qs}`),
+          fetchJson<ActaRecepcion[]>(`/api/actas-recepcion${qs}`),
+          fetchJson<AsignacionRepuesto[]>(`/api/asignaciones-repuesto${qs}`),
+        ]);
+        if (cancelled) return;
+        setClientes(cli);
+        setRepuestos(rep);
+        setOrdenes(ord);
+        setActas(act);
+        setActasRecepcion(actRec);
+        setAsignacionesRepuesto(asigRep);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Error al cambiar de empresa");
+      }
+    }
+    refetchScoped();
+    return () => {
+      cancelled = true;
+    };
+  }, [empresaActivaId, hasBootstrapped]);
+
+  const setEmpresaActivaId = useCallback((id: string) => {
+    setEmpresaActivaIdState(id);
+    try {
+      localStorage.setItem(EMPRESA_ACTIVA_STORAGE_KEY, id);
+    } catch {
+      // ignore
+    }
   }, []);
 
   const currentUser =
     usuarios.find((u) => u.id === currentUserId) ??
     usuarios[0] ??
     usuariosIniciales[1];
+
+  const empresasAccesibles = useCallback(() => {
+    const ids = usuarioEmpresas
+      .filter((ue) => ue.usuarioId === currentUser.id)
+      .map((ue) => ue.empresaId);
+    return empresas.filter((e) => ids.includes(e.id));
+  }, [usuarioEmpresas, currentUser, empresas]);
+
+  const puedeConsolidarActual = useCallback(
+    () => puedeConsolidar(currentUser),
+    [currentUser]
+  );
 
   const getCurrentUserPermisos = useCallback(
     () => getPermisosUsuario(currentUser, permisosPorRol),
@@ -433,6 +628,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (id: string) => tiposEquipoComponente.find((t) => t.id === id),
     [tiposEquipoComponente]
   );
+
+  // Vista de compatibilidad "plana" para las pantallas de control-calidad,
+  // recepcion-entrega y configuracion — ver comentario de ChecklistTemplate.
+  const checklistTemplates = useMemo<ChecklistTemplate[]>(() => {
+    return checklistPlantillas.flatMap((p) => {
+      const version =
+        p.versiones.find((v) => v.estado === "publicada") ??
+        p.versiones.find((v) => v.estado === "borrador");
+      if (!version) return [];
+      return [
+        {
+          id: version.id,
+          plantillaId: p.id,
+          contexto: p.contexto,
+          tipoEquipoComponenteId: p.tipoEquipoComponenteId,
+          nombre: p.nombre,
+          activo: p.activa,
+          secciones: version.secciones.map((s) => ({
+            id: s.id,
+            templateId: version.id,
+            titulo: s.titulo,
+            orden: s.orden,
+            items: s.items.map((it) => ({
+              id: it.id,
+              seccionId: s.id,
+              label: it.descripcion,
+              orden: it.orden,
+            })),
+          })),
+        },
+      ];
+    });
+  }, [checklistPlantillas]);
+
   const getChecklistTemplateById = useCallback(
     (id: string) => checklistTemplates.find((t) => t.id === id),
     [checklistTemplates]
@@ -499,42 +728,125 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // addChecklistTemplate/updateChecklistTemplate/deleteChecklistTemplate operan
+  // sobre la vista de compatibilidad: "id" es el id de la ChecklistVersion,
+  // pero atributos como "nombre"/"activo" viven en la ChecklistPlantilla.
   const addChecklistTemplate = useCallback(
     async (
-      data: Omit<ChecklistTemplate, "id" | "secciones"> & {
-        secciones: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+      data: Omit<ChecklistTemplate, "id" | "secciones" | "plantillaId"> & {
+        empresaId?: string;
+        secciones: { titulo: string; orden: number; items: { codigo: string; descripcion: string; orden: number }[] }[];
       }
     ) => {
-      const template = await fetchJson<ChecklistTemplate>(
-        "/api/checklist-templates",
-        { method: "POST", body: JSON.stringify(data) }
-      );
-      setChecklistTemplates((prev) => [...prev, template]);
+      const { contexto, tipoEquipoComponenteId, nombre, activo, empresaId, secciones } = data;
+      const plantilla = await fetchJson<ChecklistPlantilla>("/api/checklist-plantillas", {
+        method: "POST",
+        body: JSON.stringify({
+          empresaId: empresaId ?? empresaActivaId,
+          codigo: nombre.toUpperCase().replace(/[^A-Z0-9]+/g, "_"),
+          nombre,
+          contexto,
+          aplicaA: "equipo",
+          tipoEquipoComponenteId,
+          secciones,
+        }),
+      });
+      setChecklistPlantillas((prev) => [...prev, { ...plantilla, activa: activo ?? true }]);
     },
-    []
+    [empresaActivaId]
   );
 
   const updateChecklistTemplate = useCallback(
     async (
       id: string,
-      data: Partial<Omit<ChecklistTemplate, "id" | "secciones">> & {
-        secciones?: { titulo: string; orden: number; items: { label: string; orden: number }[] }[];
+      data: Partial<Pick<ChecklistTemplate, "nombre" | "activo">> & {
+        secciones?: { titulo: string; orden: number; items: { codigo: string; descripcion: string; orden: number }[] }[];
       }
     ) => {
-      const template = await fetchJson<ChecklistTemplate>(
-        `/api/checklist-templates/${id}`,
-        { method: "PATCH", body: JSON.stringify(data) }
+      // "id" es el id de la versión visible en la vista de compatibilidad;
+      // hay que resolver a qué plantilla pertenece para el PATCH plantilla-level.
+      const plantilla = checklistPlantillas.find((p) =>
+        p.versiones.some((v) => v.id === id)
       );
-      setChecklistTemplates((prev) =>
-        prev.map((t) => (t.id === id ? template : t))
-      );
+      if (!plantilla) throw new Error("Plantilla no encontrada");
+
+      if (data.secciones) {
+        const version = await fetchJson<ChecklistVersion>(`/api/checklist-versiones/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ secciones: data.secciones }),
+        });
+        setChecklistPlantillas((prev) =>
+          prev.map((p) =>
+            p.id !== plantilla.id
+              ? p
+              : { ...p, versiones: p.versiones.map((v) => (v.id === id ? version : v)) }
+          )
+        );
+      }
+
+      if (data.nombre !== undefined || data.activo !== undefined) {
+        const actualizada = await fetchJson<ChecklistPlantilla>(
+          `/api/checklist-plantillas/${plantilla.id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ nombre: data.nombre, activa: data.activo }),
+          }
+        );
+        setChecklistPlantillas((prev) =>
+          prev.map((p) =>
+            p.id !== plantilla.id ? p : { ...p, nombre: actualizada.nombre, activa: actualizada.activa }
+          )
+        );
+      }
+    },
+    [checklistPlantillas]
+  );
+
+  const deleteChecklistTemplate = useCallback(
+    async (id: string) => {
+      const plantilla = checklistPlantillas.find((p) => p.versiones.some((v) => v.id === id));
+      if (!plantilla) return;
+      await fetchJson(`/api/checklist-plantillas/${plantilla.id}`, { method: "DELETE" });
+      setChecklistPlantillas((prev) => prev.filter((p) => p.id !== plantilla.id));
+    },
+    [checklistPlantillas]
+  );
+
+  const addColaboradorEmpresa = useCallback(async (data: Omit<ColaboradorEmpresa, "id">) => {
+    const ce = await fetchJson<ColaboradorEmpresa>("/api/colaborador-empresa", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setColaboradorEmpresas((prev) => [...prev, ce]);
+  }, []);
+
+  const deleteColaboradorEmpresa = useCallback(async (id: string) => {
+    await fetchJson(`/api/colaborador-empresa/${id}`, { method: "DELETE" });
+    setColaboradorEmpresas((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const addUsuarioEmpresa = useCallback(async (data: Omit<UsuarioEmpresa, "id">) => {
+    const ue = await fetchJson<UsuarioEmpresa>("/api/usuario-empresa", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    setUsuarioEmpresas((prev) => [...prev, ue]);
+  }, []);
+
+  const updateUsuarioEmpresa = useCallback(
+    async (id: string, data: Partial<Omit<UsuarioEmpresa, "id">>) => {
+      const ue = await fetchJson<UsuarioEmpresa>(`/api/usuario-empresa/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      setUsuarioEmpresas((prev) => prev.map((u) => (u.id === id ? ue : u)));
     },
     []
   );
 
-  const deleteChecklistTemplate = useCallback(async (id: string) => {
-    await fetchJson(`/api/checklist-templates/${id}`, { method: "DELETE" });
-    setChecklistTemplates((prev) => prev.filter((t) => t.id !== id));
+  const deleteUsuarioEmpresa = useCallback(async (id: string) => {
+    await fetchJson(`/api/usuario-empresa/${id}`, { method: "DELETE" });
+    setUsuarioEmpresas((prev) => prev.filter((u) => u.id !== id));
   }, []);
 
   const pushEmail = useCallback((email: EmailNotificacion) => {
@@ -671,13 +983,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [asignaciones, ordenes, colaboradores, usuarios, pushEmail]
   );
 
-  const addCliente = useCallback(async (data: Omit<Cliente, "id" | "createdAt">) => {
-    const cliente = await fetchJson<Cliente>("/api/clientes", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    setClientes((prev) => [...prev, cliente]);
-  }, []);
+  const addCliente = useCallback(
+    async (data: Omit<Cliente, "id" | "createdAt">) => {
+      const cliente = await fetchJson<Cliente>("/api/clientes", {
+        method: "POST",
+        body: JSON.stringify({ ...data, empresaId: data.empresaId || empresaActivaId }),
+      });
+      setClientes((prev) => [...prev, cliente]);
+    },
+    [empresaActivaId]
+  );
 
   const updateCliente = useCallback(
     async (id: string, data: Omit<Cliente, "id" | "createdAt">) => {
@@ -723,14 +1038,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addRepuesto = useCallback(
-    async (data: Omit<Repuesto, "id" | "createdAt">) => {
+    async (data: Omit<Repuesto, "id" | "createdAt" | "empresaId">) => {
       const repuesto = await fetchJson<Repuesto>("/api/repuestos", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
       });
       setRepuestos((prev) => [...prev, repuesto]);
     },
-    []
+    [empresaActivaId]
   );
 
   const updateRepuesto = useCallback(
@@ -750,17 +1065,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const asignarRepuesto = useCallback(
-    async (data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion">) => {
+    async (data: Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion" | "empresaId">) => {
       const asignacion = await fetchJson<AsignacionRepuesto>(
         "/api/asignaciones-repuesto",
         {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
         }
       );
       setAsignacionesRepuesto((prev) => [...prev, asignacion]);
     },
-    []
+    [empresaActivaId]
   );
 
   const actualizarAsignacionRepuesto = useCallback(
@@ -861,14 +1176,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUsuarios((prev) => prev.filter((u) => u.id !== id));
   }, []);
 
-  const addActa = useCallback(async (data: Omit<ActaCalidad, "id" | "createdAt">) => {
-    const acta = await fetchJson<ActaCalidad>("/api/actas", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    setActas((prev) => [...prev, acta]);
-    return acta.id;
-  }, []);
+  const addActa = useCallback(
+    async (data: Omit<ActaCalidad, "id" | "createdAt" | "empresaId">) => {
+      const acta = await fetchJson<ActaCalidad>("/api/actas", {
+        method: "POST",
+        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
+      });
+      setActas((prev) => [...prev, acta]);
+      return acta.id;
+    },
+    [empresaActivaId]
+  );
 
   const updateActa = useCallback(
     async (id: string, data: Partial<Omit<ActaCalidad, "id" | "createdAt">>) => {
@@ -887,15 +1205,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addActaRecepcion = useCallback(
-    async (data: Omit<ActaRecepcion, "id" | "createdAt">) => {
+    async (data: Omit<ActaRecepcion, "id" | "createdAt" | "empresaId">) => {
       const acta = await fetchJson<ActaRecepcion>("/api/actas-recepcion", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
       });
       setActasRecepcion((prev) => [...prev, acta]);
       return acta.id;
     },
-    []
+    [empresaActivaId]
   );
 
   const updateActaRecepcion = useCallback(
@@ -921,15 +1239,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addOrden = useCallback(
-    async (data: Omit<OrdenTrabajo, "id" | "createdAt">) => {
+    async (data: Omit<OrdenTrabajo, "id" | "createdAt" | "empresaId">) => {
       const orden = await fetchJson<OrdenTrabajo>("/api/ordenes", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
       });
       setOrdenes((prev) => [...prev, orden]);
       return orden.id;
     },
-    []
+    [empresaActivaId]
   );
 
   const updateOrden = useCallback(
@@ -1025,8 +1343,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         asignaciones,
         emails,
         empresas,
+        empresaActivaId,
+        setEmpresaActivaId,
+        empresasAccesibles,
+        puedeConsolidarActual,
+        colaboradorEmpresas,
+        usuarioEmpresas,
+        addColaboradorEmpresa,
+        deleteColaboradorEmpresa,
+        addUsuarioEmpresa,
+        updateUsuarioEmpresa,
+        deleteUsuarioEmpresa,
         estadosEquipo,
         tiposEquipoComponente,
+        checklistPlantillas,
         checklistTemplates,
         kpis,
         getEmpresaById,

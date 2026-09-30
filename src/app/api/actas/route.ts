@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const actas = await prisma.actaCalidad.findMany({ orderBy: { createdAt: "asc" } });
+    const empresaId = req.nextUrl.searchParams.get("empresaId");
+    const where = empresaId && empresaId !== "consolidado" ? { empresaId } : {};
+    const actas = await prisma.actaCalidad.findMany({ where, orderBy: { createdAt: "asc" } });
     return NextResponse.json(actas);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Error" }, { status: 400 });

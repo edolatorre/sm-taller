@@ -56,6 +56,7 @@ export default function UsuariosPage() {
       colaboradorId: user.colaboradorId,
       activo: user.activo,
       permisos: user.permisos,
+      puedeConsolidar: user.puedeConsolidar,
     });
     setModalOpen(true);
   }

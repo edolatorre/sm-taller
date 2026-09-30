@@ -3,6 +3,7 @@ import type { ModuloId } from "./permissions";
 
 export interface Cliente {
   id: string;
+  empresaId: string;
   razonSocial: string;
   rut: string;
   giro: string;
@@ -56,6 +57,7 @@ export interface Usuario {
   permisos: ModuloId[] | null;
   activo: boolean;
   ultimoAcceso: string;
+  puedeConsolidar: boolean;
 }
 
 export const ROL_LABELS: Record<RolUsuario, string> = {
@@ -67,6 +69,7 @@ export const ROL_LABELS: Record<RolUsuario, string> = {
 
 export function createEmptyCliente(): Omit<Cliente, "id" | "createdAt"> {
   return {
+    empresaId: "",
     razonSocial: "",
     rut: "",
     giro: "",
@@ -119,6 +122,7 @@ export function createEmptyUsuario(): Omit<Usuario, "id" | "ultimoAcceso"> {
     colaboradorId: null,
     permisos: null,
     activo: true,
+    puedeConsolidar: false,
   };
 }
 
@@ -131,6 +135,7 @@ export interface RespuestaChecklist {
 
 export interface ActaCalidad {
   id: string;
+  empresaId: string;
   tipoActa: string;
   fecha: string;
   equipoId: string;
@@ -141,13 +146,14 @@ export interface ActaCalidad {
   responsableEvaluacion: string;
   supervisorCargo: string;
   estado: "borrador" | "completada";
-  templateId?: string | null;
+  versionId?: string | null;
   tipoEquipoComponenteId?: string | null;
   createdAt: string;
 }
 
 export function createEmptyActa(equipoId = ""): Omit<ActaCalidad, "id" | "createdAt" | "respuestas"> {
   return {
+    empresaId: "",
     tipoActa: "Ingreso a taller",
     fecha: new Date().toISOString().split("T")[0],
     equipoId,
@@ -162,6 +168,7 @@ export function createEmptyActa(equipoId = ""): Omit<ActaCalidad, "id" | "create
 
 export interface ActaRecepcion {
   id: string;
+  empresaId: string;
   tipoActa: string;
   fecha: string;
   equipoId: string;
@@ -172,7 +179,7 @@ export interface ActaRecepcion {
   responsableEvaluacion: string;
   supervisorCargo: string;
   estado: "borrador" | "completada";
-  templateId?: string | null;
+  versionId?: string | null;
   tipoEquipoComponenteId?: string | null;
   createdAt: string;
 }
@@ -181,6 +188,7 @@ export function createEmptyActaRecepcion(
   equipoId = ""
 ): Omit<ActaRecepcion, "id" | "createdAt" | "respuestas"> {
   return {
+    empresaId: "",
     tipoActa: "Recepción de equipo",
     fecha: new Date().toISOString().split("T")[0],
     equipoId,
@@ -208,6 +216,7 @@ export interface RepuestoOT {
 
 export interface OrdenTrabajo {
   id: string;
+  empresaId: string;
   numeroOT: string;
   descripcion: string;
   equipoId: string;
@@ -229,6 +238,7 @@ export interface OrdenTrabajo {
 
 export function createEmptyOrden(equipoId = ""): Omit<OrdenTrabajo, "id" | "createdAt" | "repuestos"> {
   return {
+    empresaId: "",
     numeroOT: "",
     descripcion: "",
     equipoId,
@@ -314,6 +324,7 @@ export type CategoriaRepuesto =
 
 export interface Repuesto {
   id: string;
+  empresaId: string;
   nroParte: string;
   descripcion: string;
   marca: string;
@@ -338,6 +349,7 @@ export const CATEGORIA_REPUESTO_LABELS: Record<CategoriaRepuesto, string> = {
 
 export function createEmptyRepuesto(): Omit<Repuesto, "id" | "createdAt"> {
   return {
+    empresaId: "",
     nroParte: "",
     descripcion: "",
     marca: "",
@@ -358,6 +370,7 @@ export type EstadoRepuestoAsignado =
 
 export interface AsignacionRepuesto {
   id: string;
+  empresaId: string;
   repuestoId: string;
   equipoId: string;
   ordenId: string | null;
@@ -387,6 +400,7 @@ export function createEmptyAsignacionRepuesto(
   equipoId = ""
 ): Omit<AsignacionRepuesto, "id" | "fechaSolicitud" | "fechaRecepcion"> {
   return {
+    empresaId: "",
     repuestoId: "",
     equipoId,
     ordenId: null,

@@ -57,7 +57,7 @@ export default function ControlCalidadPage() {
     }
     const id = await addActa({
       ...form,
-      templateId: template.id,
+      versionId: template.id,
       tipoEquipoComponenteId: tipoEquipoComponenteId || template.tipoEquipoComponenteId,
       respuestas: createEmptyRespuestas(
         template.secciones.map((s) => ({
@@ -109,9 +109,12 @@ export default function ControlCalidadPage() {
             {actas.map((acta) => {
               const equipo = getEquipoById(acta.equipoId);
               const stats = countRespuestas(acta.respuestas);
-              const pct = Math.round(
-                ((stats.realizado + stats.pendiente) / stats.total) * 100
-              );
+              const pct =
+                stats.total === 0
+                  ? 0
+                  : Math.round(
+                      ((stats.realizado + stats.pendiente) / stats.total) * 100
+                    );
 
               return (
                 <tr

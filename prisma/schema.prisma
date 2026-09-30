@@ -13,6 +13,8 @@ datasource db {
 
 model Cliente {
   id              String   @id @default(cuid())
+  empresaId       String
+  empresa         Empresa  @relation(fields: [empresaId], references: [id])
   razonSocial     String
   rut             String
   giro            String
@@ -35,8 +37,41 @@ model Empresa {
   id     String @id @default(cuid())
   nombre String @unique
 
-  equipos          Equipo[]
+  equipos            Equipo[]
+  clientes           Cliente[]
   estadoDefiniciones EstadoDefinicion[]
+  repuestos          Repuesto[]
+  ordenes            OrdenTrabajo[]
+  actas              ActaCalidad[]
+  actasRecepcion     ActaRecepcion[]
+  asignacionesRepuesto AsignacionRepuesto[]
+  checklistPlantillas ChecklistPlantilla[]
+  colaboradorEmpresas ColaboradorEmpresa[]
+  usuarioEmpresas     UsuarioEmpresa[]
+}
+
+// Vínculo persona↔empresa: un colaborador puede trabajar en una o ambas empresas.
+model ColaboradorEmpresa {
+  id            String      @id @default(cuid())
+  colaboradorId String
+  colaborador   Colaborador @relation(fields: [colaboradorId], references: [id])
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id])
+  activo        Boolean     @default(true)
+
+  @@unique([colaboradorId, empresaId])
+}
+
+// Rol de un usuario por empresa (puede ser admin en una y supervisor en otra).
+model UsuarioEmpresa {
+  id         String     @id @default(cuid())
+  usuarioId  String
+  usuario    Usuario    @relation(fields: [usuarioId], references: [id])
+  empresaId  String
+  empresa    Empresa    @relation(fields: [empresaId], references: [id])
+  rol        RolUsuario
+
+  @@unique([usuarioId, empresaId])
 }
 
 model Equipo {
@@ -101,6 +136,7 @@ model Colaborador {
 
   usuarios    Usuario[]
   asignaciones AsignacionTarea[]
+  empresas     ColaboradorEmpresa[]
 }
 
 enum RolUsuario {
@@ -120,13 +156,17 @@ model Usuario {
   permisos      String[]
   activo        Boolean    @default(true)
   ultimoAcceso  String     @default("—")
+  puedeConsolidar Boolean  @default(false)
 
   asignacionesComoAsignador AsignacionTarea[]     @relation("AsignadoPor")
   kpiPreferencias           UsuarioKpiPreferencia[]
+  empresas                  UsuarioEmpresa[]
 }
 
 model ActaCalidad {
   id                    String   @id @default(cuid())
+  empresaId              String
+  empresa                 Empresa @relation(fields: [empresaId], references: [id])
   tipoActa              String
   fecha                 String
   equipoId              String
@@ -138,8 +178,8 @@ model ActaCalidad {
   responsableEvaluacion  String
   supervisorCargo        String
   estado                 String  @default("borrador")
-  templateId              String?
-  template                ChecklistTemplate? @relation(fields: [templateId], references: [id])
+  versionId               String?
+  version                 ChecklistVersion? @relation(fields: [versionId], references: [id])
   tipoEquipoComponenteId  String?
   tipoEquipoComponente    TipoEquipoComponente? @relation(fields: [tipoEquipoComponenteId], references: [id])
   createdAt               DateTime @default(now())
@@ -147,6 +187,8 @@ model ActaCalidad {
 
 model ActaRecepcion {
   id                    String   @id @default(cuid())
+  empresaId              String
+  empresa                 Empresa @relation(fields: [empresaId], references: [id])
   tipoActa              String
   fecha                 String
   equipoId              String
@@ -158,8 +200,8 @@ model ActaRecepcion {
   responsableEvaluacion  String
   supervisorCargo        String
   estado                 String  @default("borrador")
-  templateId              String?
-  template                ChecklistTemplate? @relation(fields: [templateId], references: [id])
+  versionId               String?
+  version                 ChecklistVersion? @relation(fields: [versionId], references: [id])
   tipoEquipoComponenteId  String?
   tipoEquipoComponente    TipoEquipoComponente? @relation(fields: [tipoEquipoComponenteId], references: [id])
   createdAt               DateTime @default(now())
@@ -167,6 +209,8 @@ model ActaRecepcion {
 
 model OrdenTrabajo {
   id                 String   @id @default(cuid())
+  empresaId          String
+  empresa            Empresa  @relation(fields: [empresaId], references: [id])
   numeroOT           String
   descripcion        String
   equipoId           String
@@ -241,6 +285,8 @@ enum CategoriaRepuesto {
 
 model Repuesto {
   id            String            @id @default(cuid())
+  empresaId     String
+  empresa       Empresa           @relation(fields: [empresaId], references: [id])
   nroParte      String
   descripcion   String
   marca         String
@@ -264,6 +310,8 @@ enum EstadoRepuestoAsignado {
 
 model AsignacionRepuesto {
   id            String                  @id @default(cuid())
+  empresaId     String
+  empresa       Empresa                 @relation(fields: [empresaId], references: [id])
   repuestoId    String
   repuesto      Repuesto                @relation(fields: [repuestoId], references: [id])
   equipoId      String
@@ -296,42 +344,92 @@ model TipoEquipoComponente {
   clave String @unique
   label String
 
-  templates       ChecklistTemplate[]
+  plantillas      ChecklistPlantilla[]
   actasCalidad    ActaCalidad[]
   actasRecepcion  ActaRecepcion[]
 }
 
-model ChecklistTemplate {
+// Identidad lógica de una plantilla de checklist (el contenido versionado vive en ChecklistVersion).
+model ChecklistPlantilla {
   id                     String   @id @default(cuid())
+  empresaId              String
+  empresa                Empresa  @relation(fields: [empresaId], references: [id])
+  codigo                 String
+  nombre                 String
   contexto               String // "recepcion" | "calidad"
+  aplicaA                String   @default("equipo") // "equipo" | "componente"
   tipoEquipoComponenteId String
   tipoEquipoComponente   TipoEquipoComponente @relation(fields: [tipoEquipoComponenteId], references: [id])
-  nombre                 String
-  activo                 Boolean  @default(true)
+  frecuencia             String?
+  activa                 Boolean  @default(true)
 
-  secciones      ChecklistTemplateSeccion[]
+  versiones ChecklistVersion[]
+
+  @@unique([empresaId, contexto, codigo])
+}
+
+enum ChecklistVersionEstado {
+  borrador
+  publicada
+  archivada
+}
+
+// Solo el borrador se edita. Publicar archiva la versión publicada anterior.
+// Los checklists ejecutados (ActaCalidad/ActaRecepcion) quedan amarrados a su
+// versión exacta: editar una plantilla nunca altera inspecciones pasadas.
+model ChecklistVersion {
+  id           String                 @id @default(cuid())
+  plantillaId  String
+  plantilla    ChecklistPlantilla     @relation(fields: [plantillaId], references: [id])
+  version      Int
+  estado       ChecklistVersionEstado @default(borrador)
+  origen       String                 @default("manual") // "manual" | "importacion"
+  notas        String?
+  createdAt    DateTime               @default(now())
+  publicadaEn  DateTime?
+
+  secciones      ChecklistVersionSeccion[]
   actasCalidad   ActaCalidad[]
   actasRecepcion ActaRecepcion[]
 
-  @@unique([contexto, tipoEquipoComponenteId, nombre])
+  @@unique([plantillaId, version])
 }
 
-model ChecklistTemplateSeccion {
-  id         String            @id @default(cuid())
-  templateId String
-  template   ChecklistTemplate @relation(fields: [templateId], references: [id])
+model ChecklistVersionSeccion {
+  id         String           @id @default(cuid())
+  versionId  String
+  version    ChecklistVersion @relation(fields: [versionId], references: [id])
   titulo     String
   orden      Int
 
-  items ChecklistTemplateItem[]
+  items ChecklistVersionItem[]
 }
 
-model ChecklistTemplateItem {
-  id        String                   @id @default(cuid())
-  seccionId String
-  seccion   ChecklistTemplateSeccion @relation(fields: [seccionId], references: [id])
-  label     String
-  orden     Int
+enum ChecklistTipoRespuesta {
+  ok_nok
+  ok_nok_na
+  numerico
+  horometro
+  seleccion
+  texto
+  foto
+}
+
+model ChecklistVersionItem {
+  id             String                   @id @default(cuid())
+  seccionId      String
+  seccion        ChecklistVersionSeccion  @relation(fields: [seccionId], references: [id])
+  codigo         String
+  descripcion    String
+  orden          Int
+  tipoRespuesta  ChecklistTipoRespuesta   @default(ok_nok_na)
+  unidad         String?
+  valorMin       Float?
+  valorMax       Float?
+  opciones       String[]
+  obligatorio    Boolean                  @default(true)
+  critico        Boolean                  @default(false)
+  fotoSiFalla    Boolean                  @default(false)
 }
 
 // ---------------------------------------------------------------------------

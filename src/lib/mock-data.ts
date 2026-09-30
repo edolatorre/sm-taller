@@ -2,7 +2,11 @@ import type { Cliente, Colaborador, Equipo, Usuario, ActaCalidad, ActaRecepcion,
 import { createEmptyRespuestas, CHECKLIST_SECTIONS } from "./checklist-data";
 import { createEmptyRespuestasRecepcion } from "./recepcion-data";
 
-export const clientesIniciales: Cliente[] = [
+// Placeholder: todos los datos de demo se asignan a la empresa "SM-EM" en el seed real
+// (prisma/seed.ts sobrescribe este valor con el id real de la empresa al sembrar).
+const EMPRESA_SM_EM_ID = "SM-EM";
+
+export const clientesIniciales: Cliente[] = ([
   {
     id: "c1",
     razonSocial: "Minera Los Andes SpA",
@@ -54,7 +58,7 @@ export const clientesIniciales: Cliente[] = [
     notas: "Requiere informes semanales de avance.",
     createdAt: "2025-10-01",
   },
-];
+] as Omit<Cliente, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));
 
 export const equiposIniciales: Equipo[] = [
   {
@@ -194,6 +198,7 @@ export const usuariosIniciales: Usuario[] = [
     permisos: null,
     activo: true,
     ultimoAcceso: "2026-03-10 09:15",
+    puedeConsolidar: false,
   },
   {
     id: "u2",
@@ -204,6 +209,7 @@ export const usuariosIniciales: Usuario[] = [
     permisos: null,
     activo: true,
     ultimoAcceso: "2026-03-10 08:30",
+    puedeConsolidar: false,
   },
   {
     id: "u3",
@@ -214,6 +220,7 @@ export const usuariosIniciales: Usuario[] = [
     permisos: null,
     activo: true,
     ultimoAcceso: "2026-03-09 17:45",
+    puedeConsolidar: false,
   },
   {
     id: "u4",
@@ -224,6 +231,7 @@ export const usuariosIniciales: Usuario[] = [
     permisos: null,
     activo: true,
     ultimoAcceso: "2026-03-10 07:50",
+    puedeConsolidar: false,
   },
   {
     id: "u5",
@@ -234,6 +242,7 @@ export const usuariosIniciales: Usuario[] = [
     permisos: null,
     activo: true,
     ultimoAcceso: "2026-03-10 07:00",
+    puedeConsolidar: false,
   },
 ];
 
@@ -257,7 +266,7 @@ respuestasDemo["calidad-tr_02"] = { estado: "R", observaciones: "" };
 respuestasDemo["calidad-fr_01"] = { estado: "R", observaciones: "" };
 respuestasDemo["calidad-el_04"] = { estado: "P", observaciones: "Batería con baja carga" };
 
-export const actasIniciales: ActaCalidad[] = [
+export const actasIniciales: ActaCalidad[] = ([
   {
     id: "acta1",
     tipoActa: "Ingreso a taller",
@@ -286,7 +295,7 @@ export const actasIniciales: ActaCalidad[] = [
     estado: "completada",
     createdAt: "2026-03-01",
   },
-];
+] as Omit<ActaCalidad, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));
 
 const respuestasRecepcionDemo = prefixRespuestas(
   createEmptyRespuestasRecepcion(CHECKLIST_SECTIONS),
@@ -299,7 +308,7 @@ respuestasRecepcionDemo["recepcion-es_12"] = { estado: "M", observaciones: "Neum
 respuestasRecepcionDemo["recepcion-fr_01"] = { estado: "B", observaciones: "" };
 respuestasRecepcionDemo["recepcion-sg_10"] = { estado: "NA", observaciones: "No aplica en este modelo" };
 
-export const actasRecepcionIniciales: ActaRecepcion[] = [
+export const actasRecepcionIniciales: ActaRecepcion[] = ([
   {
     id: "rec1",
     tipoActa: "Recepción de equipo",
@@ -328,9 +337,9 @@ export const actasRecepcionIniciales: ActaRecepcion[] = [
     estado: "borrador",
     createdAt: "2026-03-08",
   },
-];
+] as Omit<ActaRecepcion, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));
 
-export const ordenesIniciales: OrdenTrabajo[] = [
+export const ordenesIniciales: OrdenTrabajo[] = ([
   {
     id: "ot1",
     numeroOT: "OT-2026-0041",
@@ -498,7 +507,7 @@ export const ordenesIniciales: OrdenTrabajo[] = [
     observaciones: "",
     createdAt: "2026-03-10",
   },
-];
+] as Omit<OrdenTrabajo, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));
 
 export const asignacionesIniciales: AsignacionTarea[] = [
   {
@@ -563,7 +572,7 @@ export const asignacionesIniciales: AsignacionTarea[] = [
   },
 ];
 
-export const repuestosIniciales: Repuesto[] = [
+export const repuestosIniciales: Repuesto[] = ([
   {
     id: "rep1",
     nroParte: "KMT-TR-2088",
@@ -694,9 +703,9 @@ export const repuestosIniciales: Repuesto[] = [
     proveedor: "JCB Repuestos",
     createdAt: "2026-01-15",
   },
-];
+] as Omit<Repuesto, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));
 
-export const asignacionesRepuestoIniciales: AsignacionRepuesto[] = [
+export const asignacionesRepuestoIniciales: AsignacionRepuesto[] = ([
   // e5 - Caterpillar D6T (espera_repuestos): ambos repuestos ya llegaron,
   // listo para continuar a Reparación en Proceso.
   {
@@ -787,4 +796,4 @@ export const asignacionesRepuestoIniciales: AsignacionRepuesto[] = [
     proveedor: "Reman Diesel SpA",
     notas: "Pendiente de confirmación de proveedor",
   },
-];
+] as Omit<AsignacionRepuesto, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));

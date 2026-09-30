@@ -32,6 +32,7 @@ export default function ClientesPage() {
   function openEdit(cliente: Cliente) {
     setEditing(cliente);
     setForm({
+      empresaId: cliente.empresaId,
       razonSocial: cliente.razonSocial,
       rut: cliente.rut,
       giro: cliente.giro,

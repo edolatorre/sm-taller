@@ -234,8 +234,8 @@ export default function ActaRecepcionDetailPage() {
     );
   }
 
-  let template = acta.templateId
-    ? checklistTemplates.find((t) => t.id === acta.templateId)
+  let template = acta.versionId
+    ? checklistTemplates.find((t) => t.id === acta.versionId)
     : undefined;
   if (!template) {
     const tipoEquipoCompleto = tiposEquipoComponente.find(

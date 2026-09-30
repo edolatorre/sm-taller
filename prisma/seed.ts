@@ -11,7 +11,7 @@ import {
   repuestosIniciales,
   asignacionesRepuestoIniciales,
 } from "../src/lib/mock-data";
-import { CHECKLIST_SECTIONS } from "../src/lib/checklist-data";
+import { EQUIPO_GENERICO_SECCIONES } from "./equipo-generico-data";
 
 const prisma = new PrismaClient();
 
@@ -87,7 +87,7 @@ async function main() {
     await prisma.cliente.upsert({
       where: { id: c.id },
       update: {},
-      create: { ...c, createdAt: new Date(c.createdAt) },
+      create: { ...c, empresaId: empresaSmEm.id, createdAt: new Date(c.createdAt) },
     });
   }
 
@@ -110,17 +110,38 @@ async function main() {
   for (const c of colaboradoresIniciales) {
     await prisma.colaborador.upsert({ where: { id: c.id }, update: {}, create: c });
   }
+  for (const c of colaboradoresIniciales) {
+    await prisma.colaboradorEmpresa.upsert({
+      where: { colaboradorId_empresaId: { colaboradorId: c.id, empresaId: empresaSmEm.id } },
+      update: { activo: true },
+      create: { colaboradorId: c.id, empresaId: empresaSmEm.id, activo: true },
+    });
+  }
 
   console.log("Seed: usuarios...");
+  const ADMIN_ID = "u1";
   for (const u of usuariosIniciales) {
     await prisma.usuario.upsert({
       where: { id: u.id },
       update: {},
-      create: { ...u, permisos: u.permisos ?? [] },
+      create: { ...u, permisos: u.permisos ?? [], puedeConsolidar: u.id === ADMIN_ID },
     });
   }
+  for (const u of usuariosIniciales) {
+    await prisma.usuarioEmpresa.upsert({
+      where: { usuarioId_empresaId: { usuarioId: u.id, empresaId: empresaSmEm.id } },
+      update: { rol: u.rol },
+      create: { usuarioId: u.id, empresaId: empresaSmEm.id, rol: u.rol },
+    });
+  }
+  // El admin necesita acceso a ambas empresas para poder probar la vista "Consolidado".
+  await prisma.usuarioEmpresa.upsert({
+    where: { usuarioId_empresaId: { usuarioId: ADMIN_ID, empresaId: empresaRemining.id } },
+    update: { rol: "admin" },
+    create: { usuarioId: ADMIN_ID, empresaId: empresaRemining.id, rol: "admin" },
+  });
 
-  console.log("Seed: tipos de equipo/componente y plantillas de checklist...");
+  console.log("Seed: tipos de equipo/componente...");
   const tipoEquipoCompleto = await prisma.tipoEquipoComponente.upsert({
     where: { clave: "equipo_completo" },
     update: {},
@@ -130,65 +151,60 @@ async function main() {
     await prisma.tipoEquipoComponente.upsert({ where: { clave: t.clave }, update: {}, create: t });
   }
 
-  // Las plantillas por defecto usan explícitamente ids derivados de
-  // CHECKLIST_SECTIONS (sección.id / item.id) — prefijados por contexto,
-  // ya que ChecklistTemplateSeccion/Item tienen ids globales y ambos
-  // contextos (recepcion/calidad) generan su propia plantilla — para que
-  // las respuestas de las actas semilla (`actasIniciales` /
-  // `actasRecepcionIniciales`), guardadas con esas mismas claves
-  // (ver src/lib/mock-data.ts), sigan alineadas con los items de su
-  // plantilla tras la migración a plantillas configurables.
-  async function seedTemplateEquipoCompleto(contexto: "recepcion" | "calidad") {
-    let template = await prisma.checklistTemplate.findFirst({
-      where: { contexto, tipoEquipoComponenteId: tipoEquipoCompleto.id },
+  console.log("Seed: plantillas y versiones de checklist (Equipo Genérico)...");
+  // El cliente entregó un único checklist real ("CHECK LIST - EQUIPO GENERICO"),
+  // reutilizado como base tanto para recepción como para calidad, y para ambas
+  // empresas — 4 plantillas en total, cada una con una única versión publicada.
+  async function seedPlantillaEquipoGenerico(empresaId: string, contexto: "recepcion" | "calidad") {
+    const codigo = "EQUIPO_GENERICO";
+    const plantilla = await prisma.checklistPlantilla.upsert({
+      where: { empresaId_contexto_codigo: { empresaId, contexto, codigo } },
+      update: {},
+      create: {
+        empresaId,
+        codigo,
+        nombre: "Equipo Genérico",
+        contexto,
+        aplicaA: "equipo",
+        tipoEquipoComponenteId: tipoEquipoCompleto.id,
+        activa: true,
+      },
     });
-    if (!template) {
-      template = await prisma.checklistTemplate.create({
+
+    let version = await prisma.checklistVersion.findFirst({
+      where: { plantillaId: plantilla.id, version: 1 },
+    });
+    if (!version) {
+      version = await prisma.checklistVersion.create({
         data: {
-          contexto,
-          tipoEquipoComponenteId: tipoEquipoCompleto.id,
-          nombre: "Checklist estándar — Equipo completo",
+          plantillaId: plantilla.id,
+          version: 1,
+          estado: "publicada",
+          origen: "manual",
+          publicadaEn: new Date(),
+          secciones: {
+            create: EQUIPO_GENERICO_SECCIONES.map((s, si) => ({
+              titulo: s.titulo,
+              orden: si,
+              items: {
+                create: s.items.map((it, ii) => ({
+                  codigo: it.codigo,
+                  descripcion: it.descripcion,
+                  orden: ii,
+                })),
+              },
+            })),
+          },
         },
       });
     }
-    for (const [si, s] of CHECKLIST_SECTIONS.entries()) {
-      const seccionId = `${contexto}-${s.id}`;
-      await prisma.checklistTemplateSeccion.upsert({
-        where: { id: seccionId },
-        update: { templateId: template.id, titulo: s.title, orden: si },
-        create: { id: seccionId, templateId: template.id, titulo: s.title, orden: si },
-      });
-      for (const [ii, it] of s.items.entries()) {
-        const itemId = `${contexto}-${it.id}`;
-        await prisma.checklistTemplateItem.upsert({
-          where: { id: itemId },
-          update: { seccionId, label: it.label, orden: ii },
-          create: { id: itemId, seccionId, label: it.label, orden: ii },
-        });
-      }
-    }
-    // Limpia secciones/items huérfanos que hayan quedado de una corrida de
-    // seed anterior a la introducción de los ids explícitos con prefijo
-    // (p. ej. cuids autogenerados por un `create` anidado previo).
-    const idsValidos = CHECKLIST_SECTIONS.map((s) => `${contexto}-${s.id}`);
-    const seccionesHuerfanas = await prisma.checklistTemplateSeccion.findMany({
-      where: { templateId: template.id, id: { notIn: idsValidos } },
-      select: { id: true },
-    });
-    if (seccionesHuerfanas.length > 0) {
-      const huerfanaIds = seccionesHuerfanas.map((s) => s.id);
-      await prisma.checklistTemplateItem.deleteMany({
-        where: { seccionId: { in: huerfanaIds } },
-      });
-      await prisma.checklistTemplateSeccion.deleteMany({
-        where: { id: { in: huerfanaIds } },
-      });
-    }
-    return template;
+    return version;
   }
 
-  const templateRecepcion = await seedTemplateEquipoCompleto("recepcion");
-  const templateCalidad = await seedTemplateEquipoCompleto("calidad");
+  const versionCalidadSmEm = await seedPlantillaEquipoGenerico(empresaSmEm.id, "calidad");
+  const versionRecepcionSmEm = await seedPlantillaEquipoGenerico(empresaSmEm.id, "recepcion");
+  await seedPlantillaEquipoGenerico(empresaRemining.id, "calidad");
+  await seedPlantillaEquipoGenerico(empresaRemining.id, "recepcion");
 
   console.log("Seed: actas de calidad y recepción...");
   for (const a of actasIniciales) {
@@ -197,9 +213,12 @@ async function main() {
       update: {},
       create: {
         ...a,
+        empresaId: empresaSmEm.id,
         createdAt: new Date(a.createdAt),
-        respuestas: a.respuestas as unknown as Prisma.InputJsonValue,
-        templateId: templateCalidad.id,
+        // Las respuestas demo apuntaban a ids del viejo ChecklistTemplate, que ya
+        // no existen — se resetean vacías en vez de intentar remapearlas.
+        respuestas: {} as unknown as Prisma.InputJsonValue,
+        versionId: versionCalidadSmEm.id,
         tipoEquipoComponenteId: tipoEquipoCompleto.id,
       },
     });
@@ -210,9 +229,10 @@ async function main() {
       update: {},
       create: {
         ...a,
+        empresaId: empresaSmEm.id,
         createdAt: new Date(a.createdAt),
-        respuestas: a.respuestas as unknown as Prisma.InputJsonValue,
-        templateId: templateRecepcion.id,
+        respuestas: {} as unknown as Prisma.InputJsonValue,
+        versionId: versionRecepcionSmEm.id,
         tipoEquipoComponenteId: tipoEquipoCompleto.id,
       },
     });
@@ -223,7 +243,12 @@ async function main() {
     await prisma.ordenTrabajo.upsert({
       where: { id: o.id },
       update: {},
-      create: { ...o, createdAt: new Date(o.createdAt), repuestos: o.repuestos as unknown as Prisma.InputJsonValue },
+      create: {
+        ...o,
+        empresaId: empresaSmEm.id,
+        createdAt: new Date(o.createdAt),
+        repuestos: o.repuestos as unknown as Prisma.InputJsonValue,
+      },
     });
   }
 
@@ -237,13 +262,17 @@ async function main() {
     await prisma.repuesto.upsert({
       where: { id: r.id },
       update: {},
-      create: { ...r, createdAt: new Date(r.createdAt) },
+      create: { ...r, empresaId: empresaSmEm.id, createdAt: new Date(r.createdAt) },
     });
   }
 
   console.log("Seed: asignaciones de repuesto...");
   for (const a of asignacionesRepuestoIniciales) {
-    await prisma.asignacionRepuesto.upsert({ where: { id: a.id }, update: {}, create: a });
+    await prisma.asignacionRepuesto.upsert({
+      where: { id: a.id },
+      update: {},
+      create: { ...a, empresaId: empresaSmEm.id },
+    });
   }
 
   console.log("Seed: catálogo de KPIs y preferencias por defecto...");

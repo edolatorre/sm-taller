@@ -79,6 +79,7 @@ export default function InventarioPage() {
   function openEdit(repuesto: Repuesto) {
     setEditing(repuesto);
     setForm({
+      empresaId: repuesto.empresaId,
       nroParte: repuesto.nroParte,
       descripcion: repuesto.descripcion,
       marca: repuesto.marca,

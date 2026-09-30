@@ -61,7 +61,7 @@ export default function RecepcionEntregaPage() {
     }
     const id = await addActaRecepcion({
       ...form,
-      templateId: template.id,
+      versionId: template.id,
       tipoEquipoComponenteId: tipoEquipoComponenteId || template.tipoEquipoComponenteId,
       respuestas: createEmptyRespuestasRecepcion(
         template.secciones.map((s) => ({
@@ -113,7 +113,10 @@ export default function RecepcionEntregaPage() {
             {actasRecepcion.map((acta) => {
               const equipo = getEquipoById(acta.equipoId);
               const stats = countRespuestasRecepcion(acta.respuestas);
-              const pct = Math.round((stats.evaluados / stats.total) * 100);
+              const pct =
+                stats.total === 0
+                  ? 0
+                  : Math.round((stats.evaluados / stats.total) * 100);
 
               return (
                 <tr
