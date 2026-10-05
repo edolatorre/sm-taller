@@ -66,13 +66,11 @@ export async function POST(req: NextRequest) {
     }
 
     for (const file of files) {
-      const permitido = ordenId && !asignacionTareaId ? isAllowed(file.type) : file.type.startsWith("image/");
+      const permitido = isAllowed(file.type);
       if (!permitido) {
         return NextResponse.json(
           {
-            error: ordenId
-              ? `Tipo de archivo no permitido (${file.type || "desconocido"}). Use imágenes, PDF, Office, TXT o CSV`
-              : `Solo se permiten imágenes (recibido: ${file.type || "desconocido"})`,
+            error: `Tipo de archivo no permitido (${file.type || "desconocido"}). Use imágenes, PDF, Office, TXT o CSV`,
           },
           { status: 400 }
         );
