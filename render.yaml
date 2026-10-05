@@ -22,5 +22,7 @@ services:
         fromDatabase:
           name: sm-taller-db
           property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
       - key: UPLOADS_DIR
         value: /var/data/uploads

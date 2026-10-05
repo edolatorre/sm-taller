@@ -203,6 +203,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
+  if (res.status === 401 && typeof window !== "undefined" && !url.startsWith("/api/auth/")) {
+    window.location.href = "/login";
+  }
   if (!res.ok) {
     let message = `Error en ${url}`;
     try {
@@ -220,7 +223,7 @@ interface AppContextType {
   loading: boolean;
   error: string | null;
   currentUser: Usuario;
-  setCurrentUserId: (id: string) => void;
+  logout: () => Promise<void>;
   permisosPorRol: Record<RolUsuario, ModuloId[]>;
   updatePermisosRol: (rol: RolUsuario, permisos: ModuloId[]) => void;
   getCurrentUserPermisos: () => ModuloId[];
@@ -284,10 +287,10 @@ interface AppContextType {
   addColaborador: (data: Omit<Colaborador, "id">) => Promise<void>;
   updateColaborador: (id: string, data: Omit<Colaborador, "id">) => Promise<void>;
   deleteColaborador: (id: string) => Promise<void>;
-  addUsuario: (data: Omit<Usuario, "id" | "ultimoAcceso">) => Promise<void>;
+  addUsuario: (data: Omit<Usuario, "id" | "ultimoAcceso"> & { password?: string }) => Promise<void>;
   updateUsuario: (
     id: string,
-    data: Omit<Usuario, "id" | "ultimoAcceso">
+    data: Omit<Usuario, "id" | "ultimoAcceso"> & { password?: string }
   ) => Promise<void>;
   deleteUsuario: (id: string) => Promise<void>;
   actas: ActaCalidad[];
@@ -369,7 +372,7 @@ const AppContext = createContext<AppContextType | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState("u2");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
@@ -408,6 +411,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     async function bootstrap() {
       try {
+        const me = await fetchJson<{ id: string }>("/api/auth/me");
+        const uid = me.id;
+        setCurrentUserId(uid);
         const data = await fetchJson<{
           clientes: Cliente[];
           equipos: Equipo[];
@@ -453,7 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // localStorage no disponible (SSR / navegador restringido)
         }
         const accesibles = data.usuarioEmpresas
-          .filter((ue) => ue.usuarioId === currentUserId)
+          .filter((ue) => ue.usuarioId === uid)
           .map((ue) => ue.empresaId);
         const inicial =
           (stored && (accesibles.includes(stored) || stored === "consolidado") && stored) ||
@@ -530,10 +536,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const logout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      localStorage.removeItem(EMPRESA_ACTIVA_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    window.location.href = "/login";
+  }, []);
+
   const currentUser =
     usuarios.find((u) => u.id === currentUserId) ??
-    usuarios[0] ??
-    usuariosIniciales[1];
+    usuariosIniciales[2]; // placeholder de menor privilegio mientras carga la sesión
 
   const empresasAccesibles = useCallback(() => {
     const ids = usuarioEmpresas
@@ -1152,7 +1167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addUsuario = useCallback(
-    async (data: Omit<Usuario, "id" | "ultimoAcceso">) => {
+    async (data: Omit<Usuario, "id" | "ultimoAcceso"> & { password?: string }) => {
       const usuario = await fetchJson<Usuario>("/api/usuarios", {
         method: "POST",
         body: JSON.stringify(data),
@@ -1163,7 +1178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const updateUsuario = useCallback(
-    async (id: string, data: Omit<Usuario, "id" | "ultimoAcceso">) => {
+    async (id: string, data: Omit<Usuario, "id" | "ultimoAcceso"> & { password?: string }) => {
       const usuario = await fetchJson<Usuario>(`/api/usuarios/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -1347,7 +1362,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading,
         error,
         currentUser,
-        setCurrentUserId,
+        logout,
         permisosPorRol,
         updatePermisosRol,
         getCurrentUserPermisos,

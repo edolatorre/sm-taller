@@ -31,6 +31,7 @@ export default function UsuariosPage() {
   const [editing, setEditing] = useState<Usuario | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<UsuarioForm>(createEmptyUsuario());
+  const [password, setPassword] = useState("");
 
   if (!canAccessModulo("usuarios")) {
     return (
@@ -44,11 +45,13 @@ export default function UsuariosPage() {
   function openCreate() {
     setEditing(null);
     setForm(createEmptyUsuario());
+    setPassword("");
     setModalOpen(true);
   }
 
   function openEdit(user: Usuario) {
     setEditing(user);
+    setPassword("");
     setForm({
       nombre: user.nombre,
       email: user.email,
@@ -63,10 +66,11 @@ export default function UsuariosPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const data = { ...form, ...(password ? { password } : {}) };
     if (editing) {
-      updateUsuario(editing.id, form);
+      updateUsuario(editing.id, data);
     } else {
-      addUsuario(form);
+      addUsuario(data);
     }
     setModalOpen(false);
   }
@@ -219,6 +223,21 @@ export default function UsuariosPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
+              />
+            </div>
+            <div>
+              <label className="label-field">
+                {editing ? "Nueva contraseña (vacío = no cambiar)" : "Contraseña inicial"}
+              </label>
+              <input
+                type="password"
+                className="input-field"
+                autoComplete="new-password"
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required={!editing}
+                placeholder="Mínimo 8 caracteres"
               />
             </div>
             <div>
