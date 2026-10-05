@@ -6,6 +6,23 @@ import { prisma } from "@/lib/db";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+]);
+
+function isAllowed(mime: string) {
+  return (mime.startsWith("image/") && mime !== "image/svg+xml") || ALLOWED_MIME.has(mime);
+}
+
 function uploadsRoot() {
   return process.env.UPLOADS_DIR ?? "./.uploads";
 }
@@ -20,8 +37,9 @@ function extFromFile(file: File) {
 export async function GET(req: NextRequest) {
   try {
     const asignacionTareaId = req.nextUrl.searchParams.get("asignacionTareaId");
+    const ordenId = req.nextUrl.searchParams.get("ordenId");
     const adjuntos = await prisma.adjunto.findMany({
-      where: asignacionTareaId ? { asignacionTareaId } : undefined,
+      where: asignacionTareaId ? { asignacionTareaId } : ordenId ? { ordenId } : undefined,
       orderBy: { createdAt: "asc" },
     });
     return NextResponse.json(adjuntos);
@@ -33,9 +51,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const asignacionTareaId = formData.get("asignacionTareaId");
-    if (!asignacionTareaId || typeof asignacionTareaId !== "string") {
-      return NextResponse.json({ error: "asignacionTareaId es requerido" }, { status: 400 });
+    const asigRaw = formData.get("asignacionTareaId");
+    const ordenRaw = formData.get("ordenId");
+    const asignacionTareaId = typeof asigRaw === "string" && asigRaw ? asigRaw : null;
+    const ordenId = typeof ordenRaw === "string" && ordenRaw ? ordenRaw : null;
+    const parentId = asignacionTareaId ?? ordenId;
+    if (!parentId) {
+      return NextResponse.json({ error: "asignacionTareaId u ordenId es requerido" }, { status: 400 });
     }
     const subidoPorId = formData.get("subidoPorId");
     const files = formData.getAll("file").filter((f): f is File => f instanceof File);
@@ -44,9 +66,14 @@ export async function POST(req: NextRequest) {
     }
 
     for (const file of files) {
-      if (!file.type.startsWith("image/")) {
+      const permitido = ordenId && !asignacionTareaId ? isAllowed(file.type) : file.type.startsWith("image/");
+      if (!permitido) {
         return NextResponse.json(
-          { error: `Solo se permiten imágenes (recibido: ${file.type || "desconocido"})` },
+          {
+            error: ordenId
+              ? `Tipo de archivo no permitido (${file.type || "desconocido"}). Use imágenes, PDF, Office, TXT o CSV`
+              : `Solo se permiten imágenes (recibido: ${file.type || "desconocido"})`,
+          },
           { status: 400 }
         );
       }
@@ -58,7 +85,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const dir = path.join(uploadsRoot(), asignacionTareaId);
+    const dir = path.join(uploadsRoot(), parentId);
     await mkdir(dir, { recursive: true });
 
     const creados = [];
@@ -70,7 +97,8 @@ export async function POST(req: NextRequest) {
       const adjunto = await prisma.adjunto.create({
         data: {
           asignacionTareaId,
-          urlRelativa: `${asignacionTareaId}/${filename}`,
+          ordenId: asignacionTareaId ? null : ordenId,
+          urlRelativa: `${parentId}/${filename}`,
           nombreOriginal: file.name,
           mimeType: file.type,
           tamanioBytes: file.size,
