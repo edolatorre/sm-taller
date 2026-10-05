@@ -1,20 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X } from "lucide-react";
+import { FileText, Upload, X } from "lucide-react";
 import { useApp } from "@/lib/context";
 import type { Adjunto } from "@/lib/types";
 
 interface AdjuntoUploaderProps {
-  asignacionTareaId: string;
+  asignacionTareaId?: string;
+  ordenId?: string;
   onUploaded: (adjuntos: Adjunto[]) => void;
 }
 
 export default function AdjuntoUploader({
   asignacionTareaId,
+  ordenId,
   onUploaded,
 }: AdjuntoUploaderProps) {
-  const { uploadAdjuntos } = useApp();
+  const { uploadAdjuntos, uploadAdjuntosOrden } = useApp();
   const [selected, setSelected] = useState<File[]>([]);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +36,13 @@ export default function AdjuntoUploader({
     setSubiendo(true);
     setError(null);
     try {
-      const creados = await uploadAdjuntos(asignacionTareaId, selected);
+      const creados = asignacionTareaId
+        ? await uploadAdjuntos(asignacionTareaId, selected)
+        : await uploadAdjuntosOrden(ordenId!, selected);
       onUploaded(creados);
       setSelected([]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al subir fotos");
+      setError(e instanceof Error ? e.message : "Error al subir archivos");
     } finally {
       setSubiendo(false);
     }
@@ -48,7 +52,7 @@ export default function AdjuntoUploader({
     <div className="space-y-2">
       <input
         type="file"
-        accept="image/*"
+        accept={ordenId ? "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" : "image/*"}
         multiple
         onChange={handleSelect}
         className="text-xs"
@@ -57,11 +61,18 @@ export default function AdjuntoUploader({
         <div className="flex flex-wrap gap-2">
           {selected.map((file, i) => (
             <div key={i} className="relative">
-              <img
-                src={URL.createObjectURL(file)}
-                alt={file.name}
-                className="w-16 h-16 object-cover rounded-lg border border-brand-border"
-              />
+              {file.type.startsWith("image/") ? (
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={file.name}
+                  className="w-16 h-16 object-cover rounded-lg border border-brand-border"
+                />
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs px-2 py-2 rounded-lg border border-brand-border bg-gray-50 max-w-[180px]">
+                  <FileText size={14} className="shrink-0" />
+                  <span className="truncate">{file.name}</span>
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => removeSelected(i)}

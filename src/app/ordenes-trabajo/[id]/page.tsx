@@ -2,10 +2,13 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 import { ArrowLeft, Save, CheckCircle } from "lucide-react";
 import { useApp } from "@/lib/context";
 import { ETAPAS_OT, ETAPA_LABELS, ETAPA_COLORS } from "@/lib/ordenes-data";
 import AsignacionPanel from "@/components/AsignacionPanel";
+import TerminarOTModal from "@/components/TerminarOTModal";
+import RetroalimentacionOT from "@/components/RetroalimentacionOT";
 import {
   ESTADO_REPUESTO_LABELS,
   ESTADO_REPUESTO_COLORS,
@@ -32,8 +35,11 @@ function OrdenEditor({
     updateOrden(orden.id, { [field]: value });
   }
 
-  function markTerminada() {
+  const [mostrarTerminar, setMostrarTerminar] = useState(false);
+
+  function markTerminada(retroalimentacion: string) {
     updateOrden(orden.id, {
+      retroalimentacion,
       estado: "terminada",
       fechaTermino: new Date().toISOString().split("T")[0],
       horaTermino: new Date().toTimeString().slice(0, 5),
@@ -43,6 +49,13 @@ function OrdenEditor({
 
   return (
     <>
+      {mostrarTerminar && (
+        <TerminarOTModal
+          ordenId={orden.id}
+          onCancel={() => setMostrarTerminar(false)}
+          onConfirm={markTerminada}
+        />
+      )}
       <div className="mb-6">
         <Link
           href="/ordenes-trabajo"
@@ -70,7 +83,7 @@ function OrdenEditor({
             </button>
             {orden.estado !== "terminada" && (
               <button
-                onClick={markTerminada}
+                onClick={() => setMostrarTerminar(true)}
                 className="btn-primary flex items-center gap-2"
               >
                 <CheckCircle size={16} />
@@ -334,6 +347,8 @@ function OrdenEditor({
               onChange={(e) => updateField("observaciones", e.target.value)}
             />
           </div>
+
+          {orden.estado === "terminada" && <RetroalimentacionOT orden={orden} />}
 
           <AsignacionPanel ordenId={orden.id} />
         </div>

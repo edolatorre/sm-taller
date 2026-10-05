@@ -16,7 +16,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const buffer = await readFile(path.join(uploadsRoot(), adjunto.urlRelativa));
     return new NextResponse(new Uint8Array(buffer), {
-      headers: { "Content-Type": adjunto.mimeType },
+      headers: {
+        "Content-Type": adjunto.mimeType,
+        "X-Content-Type-Options": "nosniff",
+        ...(adjunto.mimeType.startsWith("image/") || adjunto.mimeType === "application/pdf"
+          ? {}
+          : {
+              "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(adjunto.nombreOriginal)}`,
+            }),
+      },
     });
   } catch {
     return NextResponse.json({ error: "Archivo no encontrado en disco" }, { status: 404 });

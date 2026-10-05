@@ -361,6 +361,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
       { item: 2, nroParte: "CAT-789012", descripcion: "Kit sellos cilindro", cantidad: 2 },
     ],
     observaciones: "",
+    retroalimentacion: "",
     createdAt: "2026-02-16",
   },
   {
@@ -381,6 +382,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
     horaTermino: "",
     repuestos: [],
     observaciones: "Pausada por falta de repuestos",
+    retroalimentacion: "",
     createdAt: "2026-02-21",
   },
   {
@@ -403,6 +405,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
       { item: 1, nroParte: "VOL-334455", descripcion: "Filtro aceite motor", cantidad: 1 },
     ],
     observaciones: "",
+    retroalimentacion: "",
     createdAt: "2026-03-02",
   },
   {
@@ -423,6 +426,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
     horaTermino: "",
     repuestos: [],
     observaciones: "",
+    retroalimentacion: "",
     createdAt: "2026-03-01",
   },
   {
@@ -445,6 +449,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
       { item: 1, nroParte: "CAT-D6T-TRX", descripcion: "Transmisión completa", cantidad: 1 },
     ],
     observaciones: "",
+    retroalimentacion: "",
     createdAt: "2026-03-06",
   },
   {
@@ -465,6 +470,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
     horaTermino: "",
     repuestos: [],
     observaciones: "Trabajo en terreno — cliente Forestal Arauco",
+    retroalimentacion: "",
     createdAt: "2026-03-09",
   },
   {
@@ -485,6 +491,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
     horaTermino: "17:30",
     repuestos: [],
     observaciones: "OT cerrada satisfactoriamente",
+    retroalimentacion: "",
     createdAt: "2026-01-10",
   },
   {
@@ -505,6 +512,7 @@ export const ordenesIniciales: OrdenTrabajo[] = ([
     horaTermino: "",
     repuestos: [],
     observaciones: "",
+    retroalimentacion: "",
     createdAt: "2026-03-10",
   },
 ] as Omit<OrdenTrabajo, 'empresaId'>[]).map((x) => ({ ...x, empresaId: EMPRESA_SM_EM_ID }));

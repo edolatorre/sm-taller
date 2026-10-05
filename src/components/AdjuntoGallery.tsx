@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Image as ImageIcon } from "lucide-react";
+import { Trash2, Image as ImageIcon, FileText } from "lucide-react";
 import { useApp } from "@/lib/context";
 import type { Adjunto } from "@/lib/types";
 
@@ -8,12 +8,14 @@ interface AdjuntoGalleryProps {
   adjuntos: Adjunto[];
   readOnly?: boolean;
   onDeleted?: (id: string) => void;
+  sinArchivosLabel?: string;
 }
 
 export default function AdjuntoGallery({
   adjuntos,
   readOnly,
   onDeleted,
+  sinArchivosLabel = "Sin fotos adjuntas",
 }: AdjuntoGalleryProps) {
   const { deleteAdjunto } = useApp();
 
@@ -21,7 +23,7 @@ export default function AdjuntoGallery({
     return (
       <p className="text-xs text-brand-grey flex items-center gap-1">
         <ImageIcon size={14} className="opacity-50" />
-        Sin fotos adjuntas
+        {sinArchivosLabel}
       </p>
     );
   }
@@ -36,11 +38,18 @@ export default function AdjuntoGallery({
       {adjuntos.map((a) => (
         <div key={a.id} className="relative group">
           <a href={`/api/adjuntos/${a.id}`} target="_blank" rel="noopener noreferrer">
-            <img
-              src={`/api/adjuntos/${a.id}`}
-              alt={a.nombreOriginal}
-              className="w-16 h-16 object-cover rounded-lg border border-brand-border"
-            />
+            {a.mimeType.startsWith("image/") ? (
+              <img
+                src={`/api/adjuntos/${a.id}`}
+                alt={a.nombreOriginal}
+                className="w-16 h-16 object-cover rounded-lg border border-brand-border"
+              />
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs px-2 py-2 rounded-lg border border-brand-border bg-gray-50 max-w-[200px] hover:bg-gray-100">
+                <FileText size={14} className="shrink-0" />
+                <span className="truncate">{a.nombreOriginal}</span>
+              </span>
+            )}
           </a>
           {!readOnly && (
             <button

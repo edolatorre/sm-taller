@@ -228,10 +228,12 @@ model OrdenTrabajo {
   horaTermino        String
   repuestos          Json
   observaciones      String
+  retroalimentacion  String   @default("")
   createdAt          DateTime @default(now())
 
   asignaciones         AsignacionTarea[]
   asignacionesRepuesto AsignacionRepuesto[]
+  adjuntos             Adjunto[]
 }
 
 enum EstadoAsignacion {
@@ -261,16 +263,20 @@ model AsignacionTarea {
   adjuntos Adjunto[]
 }
 
+// Un adjunto pertenece a una tarea de mecánico (Mis Tareas) o a una OT
+// (retroalimentación de cierre) — exactamente uno de los dos.
 model Adjunto {
-  id                String          @id @default(cuid())
-  asignacionTareaId String
-  asignacionTarea   AsignacionTarea @relation(fields: [asignacionTareaId], references: [id])
+  id                String           @id @default(cuid())
+  asignacionTareaId String?
+  asignacionTarea   AsignacionTarea? @relation(fields: [asignacionTareaId], references: [id])
+  ordenId           String?
+  orden             OrdenTrabajo?    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   urlRelativa       String
   nombreOriginal    String
   mimeType          String
   tamanioBytes      Int
   subidoPorId       String?
-  createdAt         DateTime        @default(now())
+  createdAt         DateTime         @default(now())
 }
 
 enum CategoriaRepuesto {

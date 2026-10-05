@@ -353,6 +353,8 @@ interface AppContextType {
   getAsignacionesRepuestoByOrden: (ordenId: string) => AsignacionRepuesto[];
   uploadAdjuntos: (asignacionTareaId: string, files: File[]) => Promise<Adjunto[]>;
   getAdjuntosByAsignacion: (asignacionTareaId: string) => Promise<Adjunto[]>;
+  uploadAdjuntosOrden: (ordenId: string, files: File[]) => Promise<Adjunto[]>;
+  getAdjuntosByOrden: (ordenId: string) => Promise<Adjunto[]>;
   deleteAdjunto: (id: string) => Promise<void>;
   kpiPreferencias: UsuarioKpiPreferencia[];
   getKpiPreferencias: (usuarioId: string) => Promise<UsuarioKpiPreferencia[]>;
@@ -1266,10 +1268,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOrdenes((prev) => prev.filter((o) => o.id !== id));
   }, []);
 
-  const uploadAdjuntos = useCallback(
-    async (asignacionTareaId: string, files: File[]) => {
+  const postAdjuntos = useCallback(
+    async (campo: "asignacionTareaId" | "ordenId", id: string, files: File[]) => {
       const formData = new FormData();
-      formData.append("asignacionTareaId", asignacionTareaId);
+      formData.append(campo, id);
       for (const file of files) formData.append("file", file);
       const res = await fetch("/api/adjuntos", { method: "POST", body: formData });
       if (!res.ok) {
@@ -1286,6 +1288,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     []
   );
+
+  const uploadAdjuntos = useCallback(
+    (asignacionTareaId: string, files: File[]) =>
+      postAdjuntos("asignacionTareaId", asignacionTareaId, files),
+    [postAdjuntos]
+  );
+
+  const uploadAdjuntosOrden = useCallback(
+    (ordenId: string, files: File[]) => postAdjuntos("ordenId", ordenId, files),
+    [postAdjuntos]
+  );
+
+  const getAdjuntosByOrden = useCallback(async (ordenId: string) => {
+    return fetchJson<Adjunto[]>(`/api/adjuntos?ordenId=${encodeURIComponent(ordenId)}`);
+  }, []);
 
   const getAdjuntosByAsignacion = useCallback(async (asignacionTareaId: string) => {
     return fetchJson<Adjunto[]>(
@@ -1422,6 +1439,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getAsignacionesRepuestoByOrden,
         uploadAdjuntos,
         getAdjuntosByAsignacion,
+        uploadAdjuntosOrden,
+        getAdjuntosByOrden,
         deleteAdjunto,
         kpiPreferencias,
         getKpiPreferencias,

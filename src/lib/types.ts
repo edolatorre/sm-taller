@@ -233,6 +233,7 @@ export interface OrdenTrabajo {
   horaTermino: string;
   repuestos: RepuestoOT[];
   observaciones: string;
+  retroalimentacion: string;
   createdAt: string;
 }
 
@@ -254,6 +255,7 @@ export function createEmptyOrden(equipoId = ""): Omit<OrdenTrabajo, "id" | "crea
     fechaTermino: "",
     horaTermino: "",
     observaciones: "",
+    retroalimentacion: "",
   };
 }
 
@@ -281,7 +283,8 @@ export interface AsignacionTarea {
 
 export interface Adjunto {
   id: string;
-  asignacionTareaId: string;
+  asignacionTareaId: string | null;
+  ordenId?: string | null;
   urlRelativa: string;
   nombreOriginal: string;
   mimeType: string;
