@@ -35,6 +35,7 @@ export default function MisTareasPage() {
 
   const [comentarioId, setComentarioId] = useState<string | null>(null);
   const [comentario, setComentario] = useState("");
+  const [modoPanel, setModoPanel] = useState<"observacion" | "finalizar">("observacion");
   const [horasPorTarea, setHorasPorTarea] = useState<Record<string, string>>(
     {}
   );
@@ -82,12 +83,13 @@ export default function MisTareasPage() {
     await actualizarAsignacion(id, { estado: "en_proceso" });
   }
 
-  async function completarTarea(id: string) {
+  async function completarTarea(id: string, retroalimentacion?: string) {
     const horas = horasPorTarea[id];
     const horasTrabajadas =
       horas && horas.trim() !== "" ? Number(horas) : undefined;
     await actualizarAsignacion(id, {
       estado: "completada",
+      ...(retroalimentacion ? { comentarioMecanico: retroalimentacion } : {}),
       ...(horasTrabajadas !== undefined ? { horasTrabajadas } : {}),
     });
     setHorasPorTarea((prev) => {
@@ -98,8 +100,27 @@ export default function MisTareasPage() {
   }
 
   async function abrirObservacion(id: string) {
+    setModoPanel("observacion");
     setComentarioId(id);
     setComentario("");
+    await cargarAdjuntos(id);
+  }
+
+  // Al marcar OK se pide retroalimentación (texto + archivos) antes de finalizar la tarea.
+  async function abrirFinalizar(id: string) {
+    setModoPanel("finalizar");
+    setComentarioId(id);
+    setComentario("");
+    await cargarAdjuntos(id);
+  }
+
+  async function finalizarTarea(id: string) {
+    await completarTarea(id, comentario.trim() || undefined);
+    setComentarioId(null);
+    setComentario("");
+  }
+
+  async function cargarAdjuntos(id: string) {
     if (!adjuntosPorTarea[id]) {
       try {
         const adjuntos = await getAdjuntosByAsignacion(id);
@@ -258,13 +279,17 @@ export default function MisTareasPage() {
                     className="input-field text-sm min-h-[70px]"
                     value={comentario}
                     onChange={(e) => setComentario(e.target.value)}
-                    placeholder="Describe qué falta o el problema encontrado..."
+                    placeholder={
+                      modoPanel === "finalizar"
+                        ? "Retroalimentación del trabajo realizado (opcional)..."
+                        : "Describe qué falta o el problema encontrado..."
+                    }
                     autoFocus
                   />
 
                   <div>
                     <p className="text-xs font-medium text-brand-grey mb-1">
-                      Fotos adjuntas
+                      Archivos adjuntos
                     </p>
                     <AdjuntoGallery
                       adjuntos={adjuntosPorTarea[tarea.id] ?? []}
@@ -290,6 +315,7 @@ export default function MisTareasPage() {
                     </div>
                   </div>
 
+                  {modoPanel === "observacion" && (
                   <div>
                     <p className="text-xs font-medium text-brand-grey mb-1">
                       Parámetros técnicos
@@ -343,14 +369,24 @@ export default function MisTareasPage() {
                       </button>
                     </div>
                   </div>
+                  )}
 
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => enviarObservacion(tarea.id)}
-                      className="btn-primary text-sm"
-                    >
-                      Enviar Observación
-                    </button>
+                    {modoPanel === "finalizar" ? (
+                      <button
+                        onClick={() => finalizarTarea(tarea.id)}
+                        className="btn-primary text-sm"
+                      >
+                        Finalizar tarea
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => enviarObservacion(tarea.id)}
+                        className="btn-primary text-sm"
+                      >
+                        Enviar Observación
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setComentarioId(null);
@@ -391,7 +427,7 @@ export default function MisTareasPage() {
                         }
                       />
                       <button
-                        onClick={() => completarTarea(tarea.id)}
+                        onClick={() => abrirFinalizar(tarea.id)}
                         className="btn-primary text-sm flex items-center gap-1.5"
                       >
                         <CheckCircle2 size={14} />

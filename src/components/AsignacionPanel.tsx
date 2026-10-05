@@ -224,7 +224,7 @@ export default function AsignacionPanel({ ordenId }: AsignacionPanelProps) {
                 >
                   <Paperclip size={12} />
                   {adjuntosPorAsignacion[asg.id]?.length
-                    ? `${adjuntosPorAsignacion[asg.id].length} foto(s)`
+                    ? `${adjuntosPorAsignacion[asg.id].length} archivo(s)`
                     : "Adjuntos / parámetros"}
                 </button>
                 {expandidoId === asg.id && (

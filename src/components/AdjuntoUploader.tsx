@@ -52,7 +52,7 @@ export default function AdjuntoUploader({
     <div className="space-y-2">
       <input
         type="file"
-        accept={ordenId ? "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" : "image/*"}
+        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
         multiple
         onChange={handleSelect}
         className="text-xs"
