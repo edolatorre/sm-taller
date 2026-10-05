@@ -157,6 +157,7 @@ model Usuario {
   activo        Boolean    @default(true)
   ultimoAcceso  String     @default("—")
   puedeConsolidar Boolean  @default(false)
+  passwordHash    String?
 
   asignacionesComoAsignador AsignacionTarea[]     @relation("AsignadoPor")
   kpiPreferencias           UsuarioKpiPreferencia[]
