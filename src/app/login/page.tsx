@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { LogIn } from "lucide-react";
 
 export default function LoginPage() {
@@ -34,7 +35,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <form onSubmit={handleSubmit} className="card p-8 w-full max-w-sm space-y-5">
         <div className="text-center">
-          <h1 className="text-xl font-bold">SM-EM | Gestión de Taller</h1>
+          <Image
+            src="/logo.png"
+            alt="SM-EM Servicios Mineros"
+            width={240}
+            height={111}
+            className="mx-auto mb-4 h-auto w-56"
+            priority
+          />
+          <h1 className="text-lg font-bold">Gestión de Taller</h1>
           <p className="text-sm text-brand-grey mt-1">Ingrese con su cuenta</p>
         </div>
         <div>
