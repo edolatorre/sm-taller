@@ -44,11 +44,14 @@ import {
   enviarEmailObservacion,
 } from "./email";
 
+import { etiquetasPara, type Etiquetas } from "@/lib/etiquetas";
+
 const EMPRESA_ACTIVA_STORAGE_KEY = "empresaActivaId";
 
 export interface Empresa {
   id: string;
   nombre: string;
+  tipoActivo?: string;
 }
 
 export interface EstadoDefinicion {
@@ -285,7 +288,8 @@ interface AppContextType {
   addCliente: (data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   updateCliente: (id: string, data: Omit<Cliente, "id" | "createdAt">) => Promise<void>;
   deleteCliente: (id: string) => Promise<void>;
-  getClienteById: (id: string) => Cliente | undefined;
+  getClienteById: (id: string | null | undefined) => Cliente | undefined;
+  etiquetas: Etiquetas;
   addEquipo: (data: Omit<Equipo, "id">) => Promise<void>;
   updateEquipo: (
     id: string,
@@ -592,8 +596,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const etiquetas = useMemo(
+    () => etiquetasPara(empresas.find((e) => e.id === empresaActivaId)?.tipoActivo),
+    [empresas, empresaActivaId]
+  );
+
   const getClienteById = useCallback(
-    (id: string) => clientes.find((c) => c.id === id),
+    (id: string | null | undefined) => clientes.find((c) => c.id === id),
     [clientes]
   );
   const getEquipoById = useCallback(
@@ -1419,6 +1428,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateCliente,
         deleteCliente,
         getClienteById,
+        etiquetas,
         addEquipo,
         updateEquipo,
         deleteEquipo,

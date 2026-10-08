@@ -36,6 +36,8 @@ model Cliente {
 model Empresa {
   id     String @id @default(cuid())
   nombre String @unique
+  // "equipo" (SM-EM: equipo completo) | "componente" (REMINING: trabaja sobre componentes de equipos)
+  tipoActivo String @default("equipo")
 
   equipos            Equipo[]
   clientes           Cliente[]
@@ -81,10 +83,14 @@ model Equipo {
   anio               Int
   nroSerie           String
   nroMotor           String
-  propietarioId      String
-  propietario        Cliente  @relation(fields: [propietarioId], references: [id])
+  propietarioId      String?
+  propietario        Cliente? @relation(fields: [propietarioId], references: [id])
   empresaId          String
   empresa            Empresa  @relation(fields: [empresaId], references: [id])
+  // Solo empresas que trabajan con componentes:
+  idComponente       String?
+  tipoComponente     String?
+  equipoReferencia   String?
   estado             String
   fechaIngreso       String
   descripcionTrabajo String
@@ -93,6 +99,8 @@ model Equipo {
   actas               ActaCalidad[]
   actasRecepcion      ActaRecepcion[]
   asignacionesRepuesto AsignacionRepuesto[]
+
+  @@unique([empresaId, idComponente])
 }
 
 model EstadoDefinicion {

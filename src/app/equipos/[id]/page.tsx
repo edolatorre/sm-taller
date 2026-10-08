@@ -44,7 +44,9 @@ export default function EquipoDetailPage() {
     getEstadoInfo,
     getUsuarioById,
     currentUser,
-  } = useApp();
+    etiquetas,
+  tiposEquipoComponente,
+} = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(createEmptyAsignacionRepuesto(equipoId));
@@ -75,7 +77,7 @@ export default function EquipoDetailPage() {
   if (!equipo) {
     return (
       <div className="text-center py-20">
-        <p className="text-brand-grey mb-4">Equipo no encontrado</p>
+        <p className="text-brand-grey mb-4">{etiquetas.uno} no encontrado</p>
         <Link href="/equipos" className="btn-primary">
           Volver al listado
         </Link>
@@ -112,7 +114,7 @@ export default function EquipoDetailPage() {
           className="inline-flex items-center gap-2 text-sm text-brand-grey hover:text-brand-dark transition-colors mb-4"
         >
           <ArrowLeft size={16} />
-          Volver a Equipos
+          Volver a {etiquetas.varios}
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -331,9 +333,30 @@ export default function EquipoDetailPage() {
         <div className="space-y-6">
           <div className="card p-6">
             <h2 className="text-sm font-semibold text-brand-blue uppercase tracking-wide mb-4">
-              Datos del Equipo
+              Datos {etiquetas.esComponentes ? "del Componente" : "del Equipo"}
             </h2>
             <dl className="space-y-3 text-sm">
+              {etiquetas.esComponentes ? (
+                <>
+                  <div className="flex justify-between">
+                    <dt className="text-brand-grey">ID Componente</dt>
+                    <dd className="font-mono text-xs font-medium">{equipo.idComponente ?? "—"}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-brand-grey">Tipo</dt>
+                    <dd className="font-medium">{tiposEquipoComponente.find((t) => t.clave === equipo.tipoComponente)?.label ?? equipo.tipoComponente ?? "—"}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-brand-grey">N° de Serie</dt>
+                    <dd className="font-mono text-xs">{equipo.nroSerie}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-brand-grey">Equipo (referencia)</dt>
+                    <dd className="font-medium text-right">{equipo.equipoReferencia || "—"}</dd>
+                  </div>
+                </>
+              ) : (
+                <>
               <div className="flex justify-between">
                 <dt className="text-brand-grey">Año</dt>
                 <dd className="font-medium">{equipo.anio}</dd>
@@ -342,16 +365,20 @@ export default function EquipoDetailPage() {
                 <dt className="text-brand-grey">N° de Motor</dt>
                 <dd className="font-mono text-xs">{equipo.nroMotor}</dd>
               </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <dt className="text-brand-grey">Fecha de Ingreso</dt>
                 <dd className="font-medium">{equipo.fechaIngreso}</dd>
               </div>
+              {!etiquetas.esComponentes && (
               <div className="flex justify-between">
                 <dt className="text-brand-grey">Propietario</dt>
                 <dd className="font-medium text-right">
                   {cliente?.razonSocial ?? "—"}
                 </dd>
               </div>
+              )}
             </dl>
             {equipo.descripcionTrabajo && (
               <>

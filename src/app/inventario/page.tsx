@@ -40,7 +40,8 @@ export default function InventarioPage() {
     getEquipoById,
     getOrdenById,
     empresaActivaId,
-  } = useApp();
+    etiquetas,
+} = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Repuesto | null>(null);
@@ -142,7 +143,7 @@ export default function InventarioPage() {
           subtitle="Solicitados o en tránsito"
         />
         <StatCard
-          title="Equipos Listos"
+          title={`${etiquetas.varios} Listos`}
           value={listosParaContinuar.length}
           icon={<CheckCircle2 size={24} className="text-green-400" />}
           color="bg-green-500/10"
@@ -308,7 +309,7 @@ export default function InventarioPage() {
             <thead>
               <tr className="border-b border-brand-border text-brand-grey">
                 <th className="text-left p-4 font-medium">Repuesto</th>
-                <th className="text-left p-4 font-medium">Equipo</th>
+                <th className="text-left p-4 font-medium">{etiquetas.uno}</th>
                 <th className="text-left p-4 font-medium">OT</th>
                 <th className="text-left p-4 font-medium">Cant.</th>
                 <th className="text-left p-4 font-medium">Proveedor</th>

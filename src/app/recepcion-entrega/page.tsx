@@ -25,7 +25,8 @@ export default function RecepcionEntregaPage() {
     getEquipoById,
     tiposEquipoComponente,
     checklistTemplates,
-  } = useApp();
+    etiquetas,
+} = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tipoEquipoComponenteId, setTipoEquipoComponenteId] = useState("");
@@ -101,7 +102,7 @@ export default function RecepcionEntregaPage() {
             <tr className="border-b border-brand-border text-brand-grey">
               <th className="text-left p-4 font-medium">Fecha</th>
               <th className="text-left p-4 font-medium">Tipo de Acta</th>
-              <th className="text-left p-4 font-medium">Equipo</th>
+              <th className="text-left p-4 font-medium">{etiquetas.uno}</th>
               <th className="text-left p-4 font-medium">N° Serie</th>
               <th className="text-left p-4 font-medium">Trabajo</th>
               <th className="text-left p-4 font-medium">Progreso</th>
@@ -221,17 +222,17 @@ export default function RecepcionEntregaPage() {
             />
           </div>
           <div>
-            <label className="label-field">Equipo</label>
+            <label className="label-field">{etiquetas.uno}</label>
             <select
               className="input-field"
               value={form.equipoId}
               onChange={(e) => setForm({ ...form, equipoId: e.target.value })}
               required
             >
-              <option value="">Seleccionar equipo...</option>
+              <option value="">Seleccionar {etiquetas.uno.toLowerCase()}...</option>
               {equipos.map((eq) => (
                 <option key={eq.id} value={eq.id}>
-                  {eq.marca} {eq.modelo} — {eq.nroSerie}
+                  {etiquetas.esComponentes && eq.idComponente ? `${eq.idComponente} · ` : ""}{eq.marca} {eq.modelo} — {eq.nroSerie}
                 </option>
               ))}
             </select>
