@@ -24,7 +24,8 @@ export default function DashboardPage() {
     kpiPreferencias,
     getKpiPreferencias,
     updateKpiPreferencias,
-  } = useApp();
+    etiquetas,
+} = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<
@@ -132,7 +133,7 @@ export default function DashboardPage() {
 
       <div className="card">
         <div className="p-6 border-b border-brand-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Equipos en Taller</h2>
+          <h2 className="text-lg font-semibold">{etiquetas.varios} en Taller</h2>
           <Link href="/equipos" className="text-sm text-brand-blue hover:underline">
             Ver todos →
           </Link>
@@ -141,7 +142,7 @@ export default function DashboardPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-brand-border text-brand-grey">
-                <th className="text-left p-4 font-medium">Equipo</th>
+                <th className="text-left p-4 font-medium">{etiquetas.uno}</th>
                 <th className="text-left p-4 font-medium">N° Serie</th>
                 <th className="text-left p-4 font-medium">Propietario</th>
                 <th className="text-left p-4 font-medium">Estado</th>

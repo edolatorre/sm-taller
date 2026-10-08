@@ -44,7 +44,7 @@ const ICONOS: Record<ModuloId, LucideIcon> = {
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { currentUser, asignaciones, getCurrentUserPermisos } = useApp();
+  const { currentUser, asignaciones, getCurrentUserPermisos, etiquetas } = useApp();
 
   const tareasPendientes = currentUser.colaboradorId
     ? asignaciones.filter(
@@ -60,14 +60,14 @@ export default function Sidebar() {
     () =>
       MODULOS.filter((m) => permisos.includes(m.id)).map((m) => ({
         href: m.ruta,
-        label: m.label,
+        label: m.id === "equipos" ? etiquetas.varios : m.label,
         icon: ICONOS[m.id],
         badge:
           m.id === "mis_tareas" && tareasPendientes > 0
             ? tareasPendientes
             : undefined,
       })),
-    [permisos, tareasPendientes]
+    [permisos, tareasPendientes, etiquetas.varios]
   );
 
   const nav = (

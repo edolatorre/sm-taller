@@ -20,7 +20,7 @@ function ActaRecepcionEditor({
   template: ChecklistTemplate | undefined;
 }) {
   const router = useRouter();
-  const { updateActaRecepcion } = useApp();
+  const { updateActaRecepcion, etiquetas } = useApp();
   const secciones = template
     ? template.secciones.map((s) => ({
         id: s.id,
@@ -82,7 +82,7 @@ function ActaRecepcionEditor({
 
       <div className="card p-6 mb-6">
         <h2 className="text-sm font-semibold text-brand-blue uppercase tracking-wide mb-4">
-          Datos del Equipo
+          Datos {etiquetas.esComponentes ? "del Componente" : "del Equipo"}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
@@ -103,7 +103,7 @@ function ActaRecepcionEditor({
             />
           </div>
           <div>
-            <label className="label-field">Equipo</label>
+            <label className="label-field">{etiquetas.uno}</label>
             <input
               className="input-field bg-gray-50"
               value={

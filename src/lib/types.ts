@@ -27,11 +27,15 @@ export interface Equipo {
   anio: number;
   nroSerie: string;
   nroMotor: string;
-  propietarioId: string;
+  propietarioId: string | null;
   empresaId: string;
   estado: string;
   fechaIngreso: string;
   descripcionTrabajo: string;
+  // Solo para empresas que trabajan con componentes (REMINING)
+  idComponente?: string | null;
+  tipoComponente?: string | null;
+  equipoReferencia?: string | null;
 }
 
 export interface Colaborador {
@@ -98,6 +102,9 @@ export function createEmptyEquipo(): Omit<Equipo, "id"> {
     estado: "en_taller",
     fechaIngreso: new Date().toISOString().split("T")[0],
     descripcionTrabajo: "",
+    idComponente: "",
+    tipoComponente: "",
+    equipoReferencia: "",
   };
 }
 

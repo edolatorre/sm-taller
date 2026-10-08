@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { mensajeError, normalizarEquipo } from "@/lib/equipos-api";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { usuarioId, ...data } = body;
+    const { usuarioId, ...rawData } = body;
+    const data = normalizarEquipo(rawData) as Record<string, unknown> & { estado?: string };
 
     const actual = await prisma.equipo.findUnique({ where: { id } });
     if (!actual) {
@@ -14,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (data.estado !== undefined && data.estado !== actual.estado) {
       const [equipo] = await prisma.$transaction([
-        prisma.equipo.update({ where: { id }, data }),
+        prisma.equipo.update({ where: { id }, data: data as never }),
         prisma.historialEstado.create({
           data: {
             entidadTipo: "equipo",
@@ -29,11 +31,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json(equipo);
     }
 
-    const equipo = await prisma.equipo.update({ where: { id }, data });
+    const equipo = await prisma.equipo.update({ where: { id }, data: data as never });
     return NextResponse.json(equipo);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Error desconocido";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: mensajeError(error) }, { status: 400 });
   }
 }
 

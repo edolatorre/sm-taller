@@ -27,7 +27,7 @@ function OrdenEditor({
   equipo: Equipo | undefined;
 }) {
   const router = useRouter();
-  const { updateOrden, colaboradores, repuestos, getAsignacionesRepuestoByOrden } =
+  const { updateOrden, colaboradores, repuestos, getAsignacionesRepuestoByOrden, etiquetas } =
     useApp();
   const asignacionesRepuestoDeOrden = getAsignacionesRepuestoByOrden(orden.id);
 
@@ -182,7 +182,7 @@ function OrdenEditor({
 
           <div className="card p-6">
             <h2 className="text-sm font-semibold text-brand-blue uppercase tracking-wide mb-4">
-              Datos del Equipo
+              Datos {etiquetas.esComponentes ? "del Componente" : "del Equipo"}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -203,6 +203,26 @@ function OrdenEditor({
                   readOnly
                 />
               </div>
+              {etiquetas.esComponentes && (
+                <>
+                  <div>
+                    <label className="label-field">ID Componente</label>
+                    <input
+                      className="input-field bg-gray-50 font-mono text-sm"
+                      value={equipo?.idComponente ?? "—"}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="label-field">Equipo al que pertenece</label>
+                    <input
+                      className="input-field bg-gray-50"
+                      value={equipo?.equipoReferencia || "—"}
+                      readOnly
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="label-field">Marca</label>
                 <input
@@ -235,6 +255,7 @@ function OrdenEditor({
                   onChange={(e) => updateField("kilometraje", e.target.value)}
                 />
               </div>
+              {!etiquetas.esComponentes && (
               <div>
                 <label className="label-field">Horómetro Diesel</label>
                 <input
@@ -245,6 +266,7 @@ function OrdenEditor({
                   }
                 />
               </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="label-field">Descripción del Trabajo</label>
                 <textarea

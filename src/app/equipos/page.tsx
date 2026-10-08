@@ -20,6 +20,8 @@ export default function EquiposPage() {
     updateEquipo,
     deleteEquipo,
     empresaActivaId,
+    etiquetas,
+    tiposEquipoComponente,
     getAsignacionesRepuestoByEquipo,
     estadosEquipo,
     getEstadoInfo,
@@ -47,11 +49,13 @@ export default function EquiposPage() {
   function openCreate() {
     setEditing(null);
     setForm(createEmptyEquipo());
+    setErrorForm(null);
     setModalOpen(true);
   }
 
   function openEdit(equipo: Equipo) {
     setEditing(equipo);
+    setErrorForm(null);
     setForm({
       marca: equipo.marca,
       modelo: equipo.modelo,
@@ -63,29 +67,48 @@ export default function EquiposPage() {
       estado: equipo.estado,
       fechaIngreso: equipo.fechaIngreso,
       descripcionTrabajo: equipo.descripcionTrabajo,
+      idComponente: equipo.idComponente ?? "",
+      tipoComponente: equipo.tipoComponente ?? "",
+      equipoReferencia: equipo.equipoReferencia ?? "",
     });
     setModalOpen(true);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  const [errorForm, setErrorForm] = useState<string | null>(null);
+  const tiposComponente = tiposEquipoComponente.filter((t) => t.clave !== "equipo_completo");
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      updateEquipo(editing.id, form);
-    } else {
-      addEquipo(form);
+    setErrorForm(null);
+    // Un componente no lleva año, N° de motor ni propietario.
+    const data = etiquetas.esComponentes
+      ? { ...form, anio: form.anio || new Date().getFullYear(), nroMotor: form.nroMotor || "", propietarioId: null }
+      : form;
+    try {
+      if (editing) {
+        await updateEquipo(editing.id, data);
+      } else {
+        await addEquipo(data);
+      }
+      setModalOpen(false);
+    } catch (err) {
+      setErrorForm(err instanceof Error ? err.message : "No se pudo guardar");
     }
-    setModalOpen(false);
   }
 
   return (
     <>
       <PageHeader
-        title="Equipos"
-        description="Listado de maquinaria pesada registrada en el taller"
+        title={etiquetas.varios}
+        description={
+          etiquetas.esComponentes
+            ? "Listado de componentes registrados en el taller"
+            : "Listado de maquinaria pesada registrada en el taller"
+        }
         action={
           <button onClick={openCreate} className="btn-primary flex items-center gap-2">
             <Plus size={18} />
-            Nuevo Equipo
+            {etiquetas.nuevo}
           </button>
         }
       />
@@ -113,12 +136,26 @@ export default function EquiposPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-brand-border text-brand-grey">
+              {etiquetas.esComponentes && (
+                <th className="text-left p-4 font-medium">ID Componente</th>
+              )}
               <th className="text-left p-4 font-medium">Marca</th>
               <th className="text-left p-4 font-medium">Modelo</th>
-              <th className="text-left p-4 font-medium">Año</th>
-              <th className="text-left p-4 font-medium">N° Serie</th>
-              <th className="text-left p-4 font-medium">N° Motor</th>
-              <th className="text-left p-4 font-medium">Propietario</th>
+              {etiquetas.esComponentes ? (
+                <>
+                  <th className="text-left p-4 font-medium">Tipo</th>
+                  <th className="text-left p-4 font-medium">N° Serie</th>
+                  <th className="text-left p-4 font-medium">Equipo</th>
+                  <th className="text-left p-4 font-medium">Fecha ingreso</th>
+                </>
+              ) : (
+                <>
+                  <th className="text-left p-4 font-medium">Año</th>
+                  <th className="text-left p-4 font-medium">N° Serie</th>
+                  <th className="text-left p-4 font-medium">N° Motor</th>
+                  <th className="text-left p-4 font-medium">Propietario</th>
+                </>
+              )}
               <th className="text-left p-4 font-medium">Estado</th>
               <th className="text-right p-4 font-medium">Acciones</th>
             </tr>
@@ -135,12 +172,30 @@ export default function EquiposPage() {
                   key={equipo.id}
                   className="border-b border-brand-border/60 hover:bg-gray-50"
                 >
+                  {etiquetas.esComponentes && (
+                    <td className="p-4 font-mono text-xs font-medium">{equipo.idComponente ?? "—"}</td>
+                  )}
                   <td className="p-4 font-medium">{equipo.marca}</td>
                   <td className="p-4">{equipo.modelo}</td>
-                  <td className="p-4">{equipo.anio}</td>
-                  <td className="p-4 font-mono text-xs">{equipo.nroSerie}</td>
-                  <td className="p-4 font-mono text-xs">{equipo.nroMotor}</td>
-                  <td className="p-4">{cliente?.razonSocial ?? "—"}</td>
+                  {etiquetas.esComponentes ? (
+                    <>
+                      <td className="p-4">
+                        {tiposEquipoComponente.find((t) => t.clave === equipo.tipoComponente)?.label ??
+                          equipo.tipoComponente ??
+                          "—"}
+                      </td>
+                      <td className="p-4 font-mono text-xs">{equipo.nroSerie}</td>
+                      <td className="p-4">{equipo.equipoReferencia || "—"}</td>
+                      <td className="p-4">{equipo.fechaIngreso}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-4">{equipo.anio}</td>
+                      <td className="p-4 font-mono text-xs">{equipo.nroSerie}</td>
+                      <td className="p-4 font-mono text-xs">{equipo.nroMotor}</td>
+                      <td className="p-4">{cliente?.razonSocial ?? "—"}</td>
+                    </>
+                  )}
                   <td className="p-4">
                     <div className="flex flex-col items-start gap-1.5">
                       <StatusBadge
@@ -185,8 +240,8 @@ export default function EquiposPage() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-8 text-center text-brand-grey">
-                  No hay equipos registrados
+                <td colSpan={10} className="p-8 text-center text-brand-grey">
+                  No hay {etiquetas.varios.toLowerCase()} registrados
                 </td>
               </tr>
             )}
@@ -197,11 +252,23 @@ export default function EquiposPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? "Editar Equipo" : "Nuevo Equipo"}
+        title={editing ? `Editar ${etiquetas.uno}` : etiquetas.nuevo}
         wide
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {etiquetas.esComponentes && (
+              <div>
+                <label className="label-field">ID único del componente</label>
+                <input
+                  className="input-field"
+                  value={form.idComponente ?? ""}
+                  onChange={(e) => setForm({ ...form, idComponente: e.target.value })}
+                  placeholder="Ej: CMP-0001"
+                  required
+                />
+              </div>
+            )}
             <div>
               <label className="label-field">Marca</label>
               <input
@@ -220,6 +287,36 @@ export default function EquiposPage() {
                 required
               />
             </div>
+            {etiquetas.esComponentes && (
+              <>
+                <div>
+                  <label className="label-field">Tipo de componente</label>
+                  <select
+                    className="input-field"
+                    value={form.tipoComponente ?? ""}
+                    onChange={(e) => setForm({ ...form, tipoComponente: e.target.value })}
+                    required
+                  >
+                    <option value="">Seleccionar tipo...</option>
+                    {tiposComponente.map((t) => (
+                      <option key={t.id} value={t.clave}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-field">Equipo al que pertenece (referencia)</label>
+                  <input
+                    className="input-field"
+                    value={form.equipoReferencia ?? ""}
+                    onChange={(e) => setForm({ ...form, equipoReferencia: e.target.value })}
+                    placeholder="Ej: Camión 797F — Flota 12"
+                  />
+                </div>
+              </>
+            )}
+            {!etiquetas.esComponentes && (
             <div>
               <label className="label-field">Año</label>
               <input
@@ -232,6 +329,7 @@ export default function EquiposPage() {
                 required
               />
             </div>
+            )}
             <div>
               <label className="label-field">Fecha de Ingreso</label>
               <input
@@ -255,6 +353,8 @@ export default function EquiposPage() {
                 required
               />
             </div>
+            {!etiquetas.esComponentes && (
+            <>
             <div>
               <label className="label-field">N° de Motor</label>
               <input
@@ -270,7 +370,7 @@ export default function EquiposPage() {
               <label className="label-field">Propietario (Cliente)</label>
               <select
                 className="input-field"
-                value={form.propietarioId}
+                value={form.propietarioId ?? ""}
                 onChange={(e) =>
                   setForm({ ...form, propietarioId: e.target.value })
                 }
@@ -284,6 +384,8 @@ export default function EquiposPage() {
                 ))}
               </select>
             </div>
+            </>
+            )}
             <div>
               <label className="label-field">Estado</label>
               <select
@@ -321,6 +423,7 @@ export default function EquiposPage() {
               }
             />
           </div>
+          {errorForm && <p className="text-sm text-red-600">{errorForm}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -330,7 +433,7 @@ export default function EquiposPage() {
               Cancelar
             </button>
             <button type="submit" className="btn-primary">
-              {editing ? "Guardar Cambios" : "Crear Equipo"}
+              {editing ? "Guardar Cambios" : `Crear ${etiquetas.uno}`}
             </button>
           </div>
         </form>
@@ -340,8 +443,8 @@ export default function EquiposPage() {
         open={deleteId !== null}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteEquipo(deleteId)}
-        title="Eliminar Equipo"
-        message="¿Está seguro que desea eliminar este equipo? Esta acción no se puede deshacer."
+        title={`Eliminar ${etiquetas.uno}`}
+        message={`¿Está seguro que desea eliminar este ${etiquetas.uno.toLowerCase()}? Esta acción no se puede deshacer.`}
       />
     </>
   );

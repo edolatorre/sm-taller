@@ -34,7 +34,8 @@ export default function OrdenesTrabajoPage() {
     deleteOrden,
     getEquipoById,
     empresaActivaId,
-  } = useApp();
+    etiquetas,
+} = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>("activas");
@@ -163,7 +164,7 @@ export default function OrdenesTrabajoPage() {
             <tr className="border-b border-brand-border text-brand-grey">
               <th className="text-left p-4 font-medium">N° OT</th>
               <th className="text-left p-4 font-medium">Descripción</th>
-              <th className="text-left p-4 font-medium">Equipo</th>
+              <th className="text-left p-4 font-medium">{etiquetas.uno}</th>
               <th className="text-left p-4 font-medium">Personal</th>
               <th className="text-left p-4 font-medium">Ubicación</th>
               <th className="text-left p-4 font-medium">Etapa</th>
@@ -285,17 +286,17 @@ export default function OrdenesTrabajoPage() {
               />
             </div>
             <div>
-              <label className="label-field">Equipo</label>
+              <label className="label-field">{etiquetas.uno}</label>
               <select
                 className="input-field"
                 value={form.equipoId}
                 onChange={(e) => setForm({ ...form, equipoId: e.target.value })}
                 required
               >
-                <option value="">Seleccionar equipo...</option>
+                <option value="">Seleccionar {etiquetas.uno.toLowerCase()}...</option>
                 {equipos.map((eq) => (
                   <option key={eq.id} value={eq.id}>
-                    {eq.marca} {eq.modelo} — {eq.nroSerie}
+                    {etiquetas.esComponentes && eq.idComponente ? `${eq.idComponente} · ` : ""}{eq.marca} {eq.modelo} — {eq.nroSerie}
                   </option>
                 ))}
               </select>
@@ -352,6 +353,7 @@ export default function OrdenesTrabajoPage() {
                 ))}
               </select>
             </div>
+            {!etiquetas.esComponentes && (
             <div>
               <label className="label-field">Horómetro Diesel</label>
               <input
@@ -363,6 +365,7 @@ export default function OrdenesTrabajoPage() {
                 placeholder="Ej: 8.450"
               />
             </div>
+            )}
             <div>
               <label className="label-field">Fecha Inicio</label>
               <input

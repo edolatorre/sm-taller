@@ -63,8 +63,8 @@ async function main() {
   });
   const empresaRemining = await prisma.empresa.upsert({
     where: { nombre: EMPRESA_REMINING },
-    update: {},
-    create: { nombre: EMPRESA_REMINING },
+    update: { tipoActivo: "componente" },
+    create: { nombre: EMPRESA_REMINING, tipoActivo: "componente" },
   });
 
   for (const [i, e] of ESTADOS_SM_EM.entries()) {
