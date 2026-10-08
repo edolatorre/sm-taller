@@ -60,6 +60,19 @@ export async function getSessionUserId(req: NextRequest) {
   return verifySession(req.cookies.get(SESSION_COOKIE)?.value);
 }
 
+// ¿El usuario de la sesión pertenece a esa empresa? (vínculo UsuarioEmpresa)
+export async function requireEmpresa(req: NextRequest, empresaId: string): Promise<NextResponse | null> {
+  const { prisma } = await import("@/lib/db");
+  const uid = await getSessionUserId(req);
+  const vinculo = uid
+    ? await prisma.usuarioEmpresa.findUnique({ where: { usuarioId_empresaId: { usuarioId: uid, empresaId } } })
+    : null;
+  if (!vinculo) {
+    return NextResponse.json({ error: "No tiene acceso a esa empresa" }, { status: 403 });
+  }
+  return null;
+}
+
 export async function requireAdmin(req: NextRequest): Promise<NextResponse | null> {
   const { prisma } = await import("@/lib/db");
   const uid = await getSessionUserId(req);

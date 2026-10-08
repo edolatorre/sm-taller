@@ -19,6 +19,7 @@ export default function EquiposPage() {
     addEquipo,
     updateEquipo,
     deleteEquipo,
+    empresaActivaId,
     getAsignacionesRepuestoByEquipo,
     estadosEquipo,
     getEstadoInfo,
@@ -29,9 +30,11 @@ export default function EquiposPage() {
   const [form, setForm] = useState(createEmptyEquipo());
   const [filter, setFilter] = useState<string>("todos");
 
-  // Sin selector multi-empresa todavía: se derivan los estados disponibles para
-  // los tabs/select desde la empresa del primer equipo listado (app demo-grade).
-  const empresaIdRef = equipos[0]?.empresaId ?? form.empresaId;
+  // Estados disponibles según la empresa activa (en vista consolidada, la del primer equipo).
+  const empresaIdRef =
+    empresaActivaId && empresaActivaId !== "consolidado"
+      ? empresaActivaId
+      : (equipos[0]?.empresaId ?? form.empresaId);
   const estadosDeLaEmpresa = estadosEquipo
     .filter((e) => e.activo && e.empresaId === empresaIdRef)
     .sort((a, b) => a.orden - b.orden);
