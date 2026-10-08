@@ -198,6 +198,14 @@ function canAssign(user: Usuario) {
   return puedeAsignarOT(user);
 }
 
+// Crear datos exige una empresa concreta (no la vista consolidada, que es solo lectura).
+function exigirEmpresa(id: string): string {
+  if (!id || id === "consolidado") {
+    throw new Error("Seleccione una empresa (no la vista consolidada) para crear registros");
+  }
+  return id;
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
@@ -491,10 +499,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevEmpresaActivaRef = useRef<string | null>(null);
   useEffect(() => {
     if (!hasBootstrapped || !empresaActivaId) return;
-    if (prevEmpresaActivaRef.current === null) {
-      prevEmpresaActivaRef.current = empresaActivaId;
-      return;
-    }
     if (prevEmpresaActivaRef.current === empresaActivaId) return;
     prevEmpresaActivaRef.current = empresaActivaId;
 
@@ -502,7 +506,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async function refetchScoped() {
       try {
         const qs = `?empresaId=${encodeURIComponent(empresaActivaId)}`;
-        const [cli, rep, ord, act, actRec, asigRep] = await Promise.all([
+        const [eqp, cli, rep, ord, act, actRec, asigRep] = await Promise.all([
+          fetchJson<Equipo[]>(`/api/equipos${qs}`),
           fetchJson<Cliente[]>(`/api/clientes${qs}`),
           fetchJson<Repuesto[]>(`/api/repuestos${qs}`),
           fetchJson<OrdenTrabajo[]>(`/api/ordenes${qs}`),
@@ -511,6 +516,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           fetchJson<AsignacionRepuesto[]>(`/api/asignaciones-repuesto${qs}`),
         ]);
         if (cancelled) return;
+        setEquipos(eqp);
         setClientes(cli);
         setRepuestos(rep);
         setOrdenes(ord);
@@ -759,7 +765,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const plantilla = await fetchJson<ChecklistPlantilla>("/api/checklist-plantillas", {
         method: "POST",
         body: JSON.stringify({
-          empresaId: empresaId ?? empresaActivaId,
+          empresaId: exigirEmpresa(empresaId ?? empresaActivaId),
           codigo: nombre.toUpperCase().replace(/[^A-Z0-9]+/g, "_"),
           nombre,
           contexto,
@@ -1004,7 +1010,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (data: Omit<Cliente, "id" | "createdAt">) => {
       const cliente = await fetchJson<Cliente>("/api/clientes", {
         method: "POST",
-        body: JSON.stringify({ ...data, empresaId: data.empresaId || empresaActivaId }),
+        body: JSON.stringify({ ...data, empresaId: exigirEmpresa(data.empresaId || empresaActivaId) }),
       });
       setClientes((prev) => [...prev, cliente]);
     },
@@ -1027,13 +1033,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setClientes((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
-  const addEquipo = useCallback(async (data: Omit<Equipo, "id">) => {
-    const equipo = await fetchJson<Equipo>("/api/equipos", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    setEquipos((prev) => [...prev, equipo]);
-  }, []);
+  const addEquipo = useCallback(
+    async (data: Omit<Equipo, "id">) => {
+      const equipo = await fetchJson<Equipo>("/api/equipos", {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          empresaId: exigirEmpresa(data.empresaId || empresaActivaId),
+        }),
+      });
+      setEquipos((prev) => [...prev, equipo]);
+    },
+    [empresaActivaId]
+  );
 
   const updateEquipo = useCallback(
     async (
@@ -1058,7 +1070,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (data: Omit<Repuesto, "id" | "createdAt" | "empresaId">) => {
       const repuesto = await fetchJson<Repuesto>("/api/repuestos", {
         method: "POST",
-        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
+        body: JSON.stringify({ ...data, empresaId: exigirEmpresa(empresaActivaId) }),
       });
       setRepuestos((prev) => [...prev, repuesto]);
     },
@@ -1087,7 +1099,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "/api/asignaciones-repuesto",
         {
           method: "POST",
-          body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
+          body: JSON.stringify({ ...data, empresaId: exigirEmpresa(empresaActivaId) }),
         }
       );
       setAsignacionesRepuesto((prev) => [...prev, asignacion]);
@@ -1197,7 +1209,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (data: Omit<ActaCalidad, "id" | "createdAt" | "empresaId">) => {
       const acta = await fetchJson<ActaCalidad>("/api/actas", {
         method: "POST",
-        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
+        body: JSON.stringify({ ...data, empresaId: exigirEmpresa(empresaActivaId) }),
       });
       setActas((prev) => [...prev, acta]);
       return acta.id;
@@ -1225,7 +1237,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (data: Omit<ActaRecepcion, "id" | "createdAt" | "empresaId">) => {
       const acta = await fetchJson<ActaRecepcion>("/api/actas-recepcion", {
         method: "POST",
-        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
+        body: JSON.stringify({ ...data, empresaId: exigirEmpresa(empresaActivaId) }),
       });
       setActasRecepcion((prev) => [...prev, acta]);
       return acta.id;
@@ -1259,7 +1271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (data: Omit<OrdenTrabajo, "id" | "createdAt" | "empresaId">) => {
       const orden = await fetchJson<OrdenTrabajo>("/api/ordenes", {
         method: "POST",
-        body: JSON.stringify({ ...data, empresaId: empresaActivaId }),
+        body: JSON.stringify({ ...data, empresaId: exigirEmpresa(empresaActivaId) }),
       });
       setOrdenes((prev) => [...prev, orden]);
       return orden.id;
