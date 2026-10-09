@@ -11,6 +11,8 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { createEmptyEquipo, type Equipo } from "@/lib/types";
 import { equipoListoParaContinuar } from "@/lib/inventario";
 
+const TIPO_NUEVO = "__nuevo__";
+
 export default function EquiposPage() {
   const {
     equipos,
@@ -22,6 +24,7 @@ export default function EquiposPage() {
     empresaActivaId,
     etiquetas,
     tiposEquipoComponente,
+    addTipoEquipoComponente,
     getAsignacionesRepuestoByEquipo,
     estadosEquipo,
     getEstadoInfo,
@@ -31,6 +34,7 @@ export default function EquiposPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(createEmptyEquipo());
   const [filter, setFilter] = useState<string>("todos");
+  const [nuevoTipo, setNuevoTipo] = useState("");
 
   // Estados disponibles según la empresa activa (en vista consolidada, la del primer equipo).
   const empresaIdRef =
@@ -49,12 +53,14 @@ export default function EquiposPage() {
   function openCreate() {
     setEditing(null);
     setForm(createEmptyEquipo());
+    setNuevoTipo("");
     setErrorForm(null);
     setModalOpen(true);
   }
 
   function openEdit(equipo: Equipo) {
     setEditing(equipo);
+    setNuevoTipo("");
     setErrorForm(null);
     setForm({
       marca: equipo.marca,
@@ -77,14 +83,42 @@ export default function EquiposPage() {
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const tiposComponente = tiposEquipoComponente.filter((t) => t.clave !== "equipo_completo");
 
+  async function resolverTipoNuevo(): Promise<string> {
+    const label = nuevoTipo.trim();
+    if (!label) throw new Error("Escribe el nombre del nuevo tipo de componente");
+    const clave = label
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    if (!clave) throw new Error("El nombre del tipo no es válido");
+    const existente = tiposEquipoComponente.find(
+      (t) => t.clave === clave || t.label.toLowerCase() === label.toLowerCase()
+    );
+    if (existente) return existente.clave;
+    await addTipoEquipoComponente({ clave, label });
+    return clave;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorForm(null);
-    // Un componente no lleva año, N° de motor ni propietario.
-    const data = etiquetas.esComponentes
-      ? { ...form, anio: form.anio || new Date().getFullYear(), nroMotor: form.nroMotor || "", propietarioId: null }
-      : form;
     try {
+      const tipoComponente =
+        etiquetas.esComponentes && form.tipoComponente === TIPO_NUEVO
+          ? await resolverTipoNuevo()
+          : form.tipoComponente;
+      // Un componente no lleva año, N° de motor ni propietario.
+      const data = etiquetas.esComponentes
+        ? {
+            ...form,
+            tipoComponente,
+            anio: form.anio || new Date().getFullYear(),
+            nroMotor: form.nroMotor || "",
+            propietarioId: null,
+          }
+        : form;
       if (editing) {
         await updateEquipo(editing.id, data);
       } else {
@@ -303,7 +337,18 @@ export default function EquiposPage() {
                         {t.label}
                       </option>
                     ))}
+                    <option value={TIPO_NUEVO}>+ Agregar otro tipo…</option>
                   </select>
+                  {form.tipoComponente === TIPO_NUEVO && (
+                    <input
+                      className="input-field mt-2"
+                      value={nuevoTipo}
+                      onChange={(e) => setNuevoTipo(e.target.value)}
+                      placeholder="Ej: Brazo, Cilindro, Bomba, Fabricación…"
+                      autoFocus
+                      required
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="label-field">Equipo al que pertenece (referencia)</label>
