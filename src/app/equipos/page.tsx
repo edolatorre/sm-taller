@@ -109,14 +109,13 @@ export default function EquiposPage() {
         etiquetas.esComponentes && form.tipoComponente === TIPO_NUEVO
           ? await resolverTipoNuevo()
           : form.tipoComponente;
-      // Un componente no lleva año, N° de motor ni propietario.
+      // Un componente no lleva año ni N° de motor.
       const data = etiquetas.esComponentes
         ? {
             ...form,
             tipoComponente,
             anio: form.anio || new Date().getFullYear(),
             nroMotor: form.nroMotor || "",
-            propietarioId: null,
           }
         : form;
       if (editing) {
@@ -398,19 +397,6 @@ export default function EquiposPage() {
                 required
               />
             </div>
-            {!etiquetas.esComponentes && (
-            <>
-            <div>
-              <label className="label-field">N° de Motor</label>
-              <input
-                className="input-field"
-                value={form.nroMotor}
-                onChange={(e) =>
-                  setForm({ ...form, nroMotor: e.target.value })
-                }
-                required
-              />
-            </div>
             <div>
               <label className="label-field">Propietario (Cliente)</label>
               <select
@@ -428,6 +414,19 @@ export default function EquiposPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            {!etiquetas.esComponentes && (
+            <>
+            <div>
+              <label className="label-field">N° de Motor</label>
+              <input
+                className="input-field"
+                value={form.nroMotor}
+                onChange={(e) =>
+                  setForm({ ...form, nroMotor: e.target.value })
+                }
+                required
+              />
             </div>
             </>
             )}
